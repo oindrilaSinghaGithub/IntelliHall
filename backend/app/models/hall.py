@@ -13,6 +13,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import TimestampedBase
 
 if TYPE_CHECKING:
+    from app.models.complaint import Complaint
     from app.models.user import User
 
 
@@ -47,6 +48,13 @@ class Hall(TimestampedBase):
 
     users: Mapped[list["User"]] = relationship(
         "User",
+        back_populates="hall",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    complaints: Mapped[list["Complaint"]] = relationship(
+        "Complaint",
         back_populates="hall",
         cascade="all, delete-orphan",
         lazy="selectin",

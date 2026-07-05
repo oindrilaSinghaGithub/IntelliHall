@@ -14,6 +14,7 @@ from app.db.base import TimestampedBase
 from app.models.enums import UserRole
 
 if TYPE_CHECKING:
+    from app.models.complaint import Complaint, ComplaintStatusHistory
     from app.models.hall import Hall
 
 
@@ -69,6 +70,22 @@ class User(TimestampedBase):
     hall: Mapped["Hall"] = relationship(
         "Hall",
         back_populates="users",
+        lazy="selectin",
+    )
+
+    complaints_created: Mapped[list["Complaint"]] = relationship(
+        "Complaint",
+        foreign_keys="Complaint.created_by",
+        back_populates="creator",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    status_updates: Mapped[list["ComplaintStatusHistory"]] = relationship(
+        "ComplaintStatusHistory",
+        foreign_keys="ComplaintStatusHistory.updated_by",
+        back_populates="actor",
+        cascade="all, delete-orphan",
         lazy="selectin",
     )
 

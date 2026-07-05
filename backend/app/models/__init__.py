@@ -3,6 +3,18 @@
 # can detect every table when it inspects Base.metadata.
 # Import order: independent models first, then dependent ones.
 
-from app.models.enums import UserRole  # noqa: F401
+from app.models.enums import (  # noqa: F401
+    ComplaintCategory,
+    ComplaintPriority,
+    ComplaintStatus,
+    ComplaintType,
+    MaintenanceType,
+    UserRole,
+)
 from app.models.hall import Hall  # noqa: F401
 from app.models.user import User  # noqa: F401
+from app.models.complaint import (  # noqa: F401
+    Complaint,
+    ComplaintImage,
+    ComplaintStatusHistory,
+)
