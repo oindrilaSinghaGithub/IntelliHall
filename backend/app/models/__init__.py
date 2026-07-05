@@ -1,5 +1,8 @@
 # IntelliHall ORM Models
-# Add model imports here to ensure Alembic detects them for autogenerate.
-# Example:
-# from app.models.user import User
-# from app.models.complaint import Complaint
+# All model classes must be imported here so that Alembic's autogenerate
+# can detect every table when it inspects Base.metadata.
+# Import order: independent models first, then dependent ones.
+
+from app.models.enums import UserRole  # noqa: F401
+from app.models.hall import Hall  # noqa: F401
+from app.models.user import User  # noqa: F401
