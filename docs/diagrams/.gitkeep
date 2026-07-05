@@ -1,0 +1,9 @@
+# IntelliHall — Diagrams
+
+Place architecture diagrams, flowcharts, and ER diagrams in this folder.
+
+## Planned diagrams
+- `system_overview.drawio` — High-level system architecture
+- `complaint_flow.drawio` — Complaint lifecycle flowchart
+- `er_diagram.drawio` — Entity-relationship diagram
+- `ai_pipeline.drawio` — AI inference pipeline

@@ -1,0 +1,3 @@
+# IntelliHall — uploads directory
+# This directory stores complaint images and attachments uploaded by users.
+# It is bind-mounted into the Docker container.
