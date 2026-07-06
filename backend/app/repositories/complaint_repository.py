@@ -7,14 +7,12 @@ propagate naturally to the service layer.
 
 Public API
 ----------
-ComplaintRepository.create(session, data)           -> Complaint
-ComplaintRepository.get_by_id(session, id)          -> Complaint | None
-ComplaintRepository.list(session, filters, page,    -> tuple[list[Complaint], int]
-                         page_size, sort_by,
-                         sort_order)
-ComplaintRepository.update(session, complaint,      -> Complaint
-                           data)
-ComplaintRepository.delete(session, complaint)      -> None
+ComplaintRepository.create(session, data)              -> Complaint
+ComplaintRepository.get_by_id(session, id)             -> Complaint | None
+ComplaintRepository.list(session, ...)                 -> tuple[list[Complaint], int]
+ComplaintRepository.update(session, complaint, data)   -> Complaint
+ComplaintRepository.delete(session, complaint)         -> None
+ComplaintRepository.add_status_history(session, ...)   -> ComplaintStatusHistory
 """
 
 from __future__ import annotations
@@ -25,7 +23,7 @@ from typing import Literal
 from sqlalchemy import asc, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.complaint import Complaint
+from app.models.complaint import Complaint, ComplaintStatusHistory
 from app.models.enums import (
     ComplaintCategory,
     ComplaintPriority,
@@ -209,3 +207,37 @@ class ComplaintRepository:
         """Hard-delete the complaint and all its cascaded children."""
         await session.delete(complaint)
         await session.flush()
+
+    # ------------------------------------------------------------------
+    # Status History
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    async def add_status_history(
+        session: AsyncSession,
+        *,
+        complaint_id: str,
+        previous_status: "ComplaintStatus | None",
+        new_status: "ComplaintStatus",
+        updated_by: str,
+        remarks: str | None,
+    ) -> ComplaintStatusHistory:
+        """
+        Insert a new ComplaintStatusHistory row.
+
+        Called by the service layer every time a complaint status changes.
+        The repository makes no decision about *when* to call this — it only
+        writes the row and returns the refreshed instance.
+        """
+        entry = ComplaintStatusHistory(
+            complaint_id=complaint_id,
+            previous_status=previous_status,
+            new_status=new_status,
+            updated_by=updated_by,
+            remarks=remarks,
+            timestamp=datetime.now(timezone.utc),
+        )
+        session.add(entry)
+        await session.flush()
+        await session.refresh(entry)
+        return entry

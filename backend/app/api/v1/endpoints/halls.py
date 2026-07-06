@@ -40,8 +40,14 @@ from app.api.dependencies.auth import get_current_user
 from app.api.dependencies.halls import require_hall_admin
 from app.db.session import get_db
 from app.models.user import User
+from app.schemas.complaint import (
+    ComplaintSummary,
+    HallComplaintFilters,
+    PaginatedResponse,
+)
 from app.schemas.hall import AssignUserRequest, HallCreate, HallRead, HallUpdate
 from app.schemas.user import UserRead
+from app.services.complaint_service import ComplaintService
 from app.services.hall_service import HallService
 
 router = APIRouter()
@@ -282,3 +288,42 @@ async def unassign_user_from_hall(
     await HallService.get_or_404(session, hall_id)
     user = await HallService.unassign_user(session, user_id)
     return UserRead.model_validate(user)
+
+
+# ---------------------------------------------------------------------------
+# GET /{hall_id}/complaints  — Admin: list all complaints for a hall
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/{hall_id}/complaints",
+    response_model=PaginatedResponse[ComplaintSummary],
+    status_code=status.HTTP_200_OK,
+    summary="List complaints for a hall",
+    description=(
+        "Return a paginated list of all complaints belonging to the specified hall.\n\n"
+        "**Requires:** `HALL_ADMIN` role.\n\n"
+        "The calling admin must be assigned to the same hall they are querying — "
+        "cross-hall access is rejected with HTTP `403`.\n\n"
+        "**Filterable by:** `status`, `priority`, `category`, `complaint_type`.\n\n"
+        "**Sortable columns:** `created_at`, `updated_at`, `priority`, "
+        "`status`, `category`, `title`.\n\n"
+        "Results are ordered newest-first by default."
+    ),
+    responses={
+        200: {"description": "Paginated list of complaint summaries for the hall."},
+        401: {"description": "Missing or invalid Bearer token."},
+        403: {"description": "Not a HALL_ADMIN, or querying a different hall."},
+        404: {"description": "Hall not found."},
+    },
+    tags=["halls"],
+)
+async def list_hall_complaints(
+    hall_id: Annotated[str, Path(description="UUID of the hall to list complaints for.")],
+    session: DBSession,
+    current_user: AdminUser,
+    filters: Annotated[HallComplaintFilters, Depends()],
+) -> PaginatedResponse[ComplaintSummary]:
+    """List all complaints for a hall (HALL_ADMIN only, own hall)."""
+    # Verify the hall itself exists (service checks admin's hall membership)
+    await HallService.get_or_404(session, hall_id)
+    return await ComplaintService.list_for_hall(session, hall_id, filters, current_user)

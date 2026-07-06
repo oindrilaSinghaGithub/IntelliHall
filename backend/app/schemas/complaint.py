@@ -89,6 +89,49 @@ class ComplaintFilters(BaseModel):
     )
 
 
+class HallComplaintFilters(BaseModel):
+    """
+    Query parameters for GET /halls/{hall_id}/complaints (admin view).
+
+    ``hall_id`` is taken from the URL path, so it is not a query parameter here.
+    Supports the same filter dimensions as ComplaintFilters minus hall_id/created_by.
+    """
+
+    status: ComplaintStatus | None = Field(default=None, description="Filter by status.")
+    priority: ComplaintPriority | None = Field(default=None, description="Filter by priority.")
+    category: ComplaintCategory | None = Field(default=None, description="Filter by category.")
+    complaint_type: ComplaintType | None = Field(
+        default=None, description="Filter by complaint type."
+    )
+    page: int = Field(default=1, ge=1, description="Page number (1-indexed).")
+    page_size: int = Field(default=20, ge=1, le=100, description="Items per page (max 100).")
+    sort_by: Literal[
+        "created_at", "updated_at", "priority", "status", "category", "title"
+    ] = Field(default="created_at", description="Column to sort by.")
+    sort_order: Literal["asc", "desc"] = Field(
+        default="desc", description="Sort direction."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Status-update request body
+# ---------------------------------------------------------------------------
+
+
+class StatusUpdateRequest(BaseModel):
+    """Body for PATCH /complaints/{complaint_id}/status."""
+
+    new_status: ComplaintStatus = Field(
+        ...,
+        description="The target status to transition to.",
+    )
+    remarks: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="Optional note explaining the reason for this transition.",
+    )
+
+
 
 # ---------------------------------------------------------------------------
 # ComplaintImage
