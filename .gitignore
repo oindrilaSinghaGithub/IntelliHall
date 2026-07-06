@@ -49,5 +49,5 @@ Thumbs.db
 *.log
 
 # Alembic
-backend/alembic/versions/*.py
-!backend/alembic/versions/.gitkeep
+backend/alembic/versions/__pycache__/
+backend/alembic/versions/*.pyc

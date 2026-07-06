@@ -6,9 +6,11 @@ from app.schemas.hall import HallCreate, HallRead, HallUpdate  # noqa: F401
 from app.schemas.user import UserCreate, UserRead, UserUpdate  # noqa: F401
 from app.schemas.complaint import (  # noqa: F401
     ComplaintCreate,
+    ComplaintFilters,
     ComplaintImageRead,
     ComplaintRead,
     ComplaintStatusHistoryRead,
     ComplaintSummary,
     ComplaintUpdate,
+    PaginatedResponse,
 )

@@ -14,11 +14,15 @@ ComplaintSummary           — lightweight list view (id, title, priority, statu
 
 ComplaintImageRead         — GET response for a single attached image
 ComplaintStatusHistoryRead — GET response for a single status-history entry
+
+PaginatedResponse[T]       — generic paginated envelope used by the list endpoint
+ComplaintFilters           — query-parameter model for list filtering / sorting
 """
 
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -29,6 +33,61 @@ from app.models.enums import (
     ComplaintType,
     MaintenanceType,
 )
+
+T = TypeVar("T")
+
+
+# ---------------------------------------------------------------------------
+# Generic paginated envelope
+# ---------------------------------------------------------------------------
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    """
+    Generic paginated response wrapper.
+
+    Used by the list endpoint so consumers always know the total count and
+    can calculate how many pages remain without a second request.
+    """
+
+    items: list[T]
+    total: int = Field(..., description="Total matching records (across all pages).")
+    page: int = Field(..., description="Current page number (1-indexed).")
+    page_size: int = Field(..., description="Number of items per page.")
+    pages: int = Field(..., description="Total number of pages.")
+
+
+# ---------------------------------------------------------------------------
+# List filters / sorting (used as FastAPI Query dependencies)
+# ---------------------------------------------------------------------------
+
+
+class ComplaintFilters(BaseModel):
+    """
+    Query parameters accepted by GET /complaints.
+
+    All fields are optional; omitting a field means "no filter on that column".
+    """
+
+    hall_id: str | None = Field(default=None, description="Filter by hall UUID.")
+    status: ComplaintStatus | None = Field(default=None, description="Filter by status.")
+    priority: ComplaintPriority | None = Field(default=None, description="Filter by priority.")
+    category: ComplaintCategory | None = Field(default=None, description="Filter by category.")
+    complaint_type: ComplaintType | None = Field(
+        default=None, description="Filter by complaint type."
+    )
+    created_by: str | None = Field(
+        default=None, description="Filter by creator user UUID."
+    )
+    page: int = Field(default=1, ge=1, description="Page number (1-indexed).")
+    page_size: int = Field(default=20, ge=1, le=100, description="Items per page (max 100).")
+    sort_by: Literal[
+        "created_at", "updated_at", "priority", "status", "category", "title"
+    ] = Field(default="created_at", description="Column to sort by.")
+    sort_order: Literal["asc", "desc"] = Field(
+        default="desc", description="Sort direction."
+    )
+
 
 
 # ---------------------------------------------------------------------------
