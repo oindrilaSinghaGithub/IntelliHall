@@ -16,7 +16,9 @@ Design decisions
 - The router is intentionally thin: every handler is a one-liner that
   delegates entirely to ComplaintService.
 - `Annotated[AsyncSession, Depends(get_db)]` is the standard DI pattern used
-  throughout IntelliHall; no authentication is wired yet.
+  throughout IntelliHall.
+- POST / requires authentication: hall_id and created_by are resolved from
+  the JWT-authenticated user, never accepted from the client.
 - Filter query-params are collected via `Depends(ComplaintFilters)` which
   gives us automatic Swagger documentation and Pydantic validation for free.
 """
@@ -29,7 +31,9 @@ from fastapi import APIRouter, Depends, Path, Query, status
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.dependencies.auth import get_current_user
 from app.db.session import get_db
+from app.models.user import User
 from app.schemas.complaint import (
     ComplaintCreate,
     ComplaintFilters,
@@ -43,10 +47,11 @@ from app.services.complaint_service import ComplaintService
 router = APIRouter()
 
 # ---------------------------------------------------------------------------
-# Type alias for the injected DB session
+# Type aliases for the injected DB session and authenticated user
 # ---------------------------------------------------------------------------
 
 DBSession = Annotated[AsyncSession, Depends(get_db)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 # ---------------------------------------------------------------------------
@@ -76,9 +81,10 @@ DBSession = Annotated[AsyncSession, Depends(get_db)]
 async def create_complaint(
     payload: ComplaintCreate,
     session: DBSession,
+    current_user: CurrentUser,
 ) -> ComplaintRead:
-    """Create and return a new complaint."""
-    complaint = await ComplaintService.create(session, payload)
+    """Create and return a new complaint (requires authentication)."""
+    complaint = await ComplaintService.create(session, payload, current_user)
     return ComplaintRead.model_validate(complaint)
 
 

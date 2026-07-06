@@ -77,20 +77,35 @@ class Complaint(TimestampedBase):
     )
 
     complaint_type: Mapped[ComplaintType] = mapped_column(
-        SAEnum(ComplaintType, name="complainttype", create_constraint=True),
+        SAEnum(
+            ComplaintType,
+            name="complainttype",
+            create_constraint=True,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
         comment="Whether the complaint is for a personal room or a common area.",
     )
 
     category: Mapped[ComplaintCategory] = mapped_column(
-        SAEnum(ComplaintCategory, name="complaintcategory", create_constraint=True),
+        SAEnum(
+            ComplaintCategory,
+            name="complaintcategory",
+            create_constraint=True,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
         index=True,
         comment="Maintenance category (electrical, plumbing, …).",
     )
 
     priority: Mapped[ComplaintPriority] = mapped_column(
-        SAEnum(ComplaintPriority, name="complaintpriority", create_constraint=True),
+        SAEnum(
+            ComplaintPriority,
+            name="complaintpriority",
+            create_constraint=True,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
         default=ComplaintPriority.MEDIUM,
         index=True,
@@ -98,7 +113,12 @@ class Complaint(TimestampedBase):
     )
 
     status: Mapped[ComplaintStatus] = mapped_column(
-        SAEnum(ComplaintStatus, name="complaintstatus", create_constraint=True),
+        SAEnum(
+            ComplaintStatus,
+            name="complaintstatus",
+            create_constraint=True,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
         default=ComplaintStatus.SUBMITTED,
         index=True,
@@ -106,7 +126,12 @@ class Complaint(TimestampedBase):
     )
 
     maintenance_type: Mapped[MaintenanceType | None] = mapped_column(
-        SAEnum(MaintenanceType, name="maintenancetype", create_constraint=True),
+        SAEnum(
+            MaintenanceType,
+            name="maintenancetype",
+            create_constraint=True,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=True,
         comment="Type of maintenance worker required (set by admin).",
     )
@@ -325,13 +350,23 @@ class ComplaintStatusHistory(TimestampedBase):
     )
 
     previous_status: Mapped[ComplaintStatus | None] = mapped_column(
-        SAEnum(ComplaintStatus, name="complaintstatus", create_constraint=False),
+        SAEnum(
+            ComplaintStatus,
+            name="complaintstatus",
+            create_constraint=False,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=True,
         comment="Status before the transition (NULL for the initial SUBMITTED entry).",
     )
 
     new_status: Mapped[ComplaintStatus] = mapped_column(
-        SAEnum(ComplaintStatus, name="complaintstatus", create_constraint=False),
+        SAEnum(
+            ComplaintStatus,
+            name="complaintstatus",
+            create_constraint=False,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
         comment="Status after the transition.",
     )

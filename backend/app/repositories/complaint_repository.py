@@ -62,11 +62,18 @@ class ComplaintRepository:
     async def create(
         session: AsyncSession,
         data: ComplaintCreate,
+        *,
+        user_id: str,
+        hall_id: str,
     ) -> Complaint:
         """
         Persist a new Complaint row.
 
-        Sets `status` to SUBMITTED and leaves all admin-only fields
+        ``user_id`` and ``hall_id`` are passed explicitly (resolved from the
+        authenticated user by the service layer) rather than taken from the
+        request schema, so that clients can never spoof either field.
+
+        Sets ``status`` to SUBMITTED and leaves all admin-only fields
         (maintenance_type, current_assignee) as NULL.
         """
         complaint = Complaint(
@@ -82,8 +89,8 @@ class ComplaintRepository:
             common_area=data.common_area,
             qr_location_id=data.qr_location_id,
             preferred_visit_time=data.preferred_visit_time,
-            hall_id=data.hall_id,
-            created_by=data.created_by,
+            hall_id=hall_id,
+            created_by=user_id,
         )
         session.add(complaint)
         await session.flush()          # obtain id without committing

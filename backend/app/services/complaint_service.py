@@ -17,6 +17,7 @@ ComplaintService.delete(session, complaint_id)           -> None
 from __future__ import annotations
 
 import math
+from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +33,9 @@ from app.schemas.complaint import (
     PaginatedResponse,
 )
 
+if TYPE_CHECKING:
+    from app.models.user import User
+
 
 class ComplaintService:
     """Business-logic layer for the Complaint domain."""
@@ -44,15 +48,26 @@ class ComplaintService:
     async def create(
         session: AsyncSession,
         data: ComplaintCreate,
+        current_user: "User",
     ) -> Complaint:
         """
         Validate business rules then delegate to the repository.
 
+        ``hall_id`` and ``created_by`` are derived from *current_user* so
+        that clients can never supply or spoof them in the request body.
+
         Rules enforced:
+        - The authenticated user must have a hall assigned (hall_id not NULL).
         - PERSONAL complaints must supply room_number.
-        - COMMON_AREA complaints must supply at least one of:
-          block, floor, common_area, or qr_location_id.
+        - COMMON_AREA complaints must supply at least one location field.
         """
+        if not current_user.hall_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your account is not assigned to a hall. "
+                       "Please contact an administrator.",
+            )
+
         if data.complaint_type == ComplaintType.PERSONAL:
             if not data.room_number:
                 raise HTTPException(
@@ -73,7 +88,12 @@ class ComplaintService:
                     ),
                 )
 
-        return await ComplaintRepository.create(session, data)
+        return await ComplaintRepository.create(
+            session,
+            data,
+            user_id=current_user.id,
+            hall_id=current_user.hall_id,
+        )
 
     # ------------------------------------------------------------------
     # Read — single (with 404 guard)

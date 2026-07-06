@@ -48,7 +48,12 @@ class User(TimestampedBase):
     )
 
     role: Mapped[UserRole] = mapped_column(
-        SAEnum(UserRole, name="userrole", create_constraint=True),
+        SAEnum(
+            UserRole,
+            name="userrole",
+            create_constraint=True,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
         default=UserRole.STUDENT,
         index=True,

@@ -204,11 +204,11 @@ class ComplaintBase(BaseModel):
 class ComplaintCreate(ComplaintBase):
     """
     Schema for creating a new Complaint (POST body).
-    `hall_id` and `created_by` are supplied by the caller / service layer.
-    """
 
-    hall_id: str = Field(..., description="UUID of the hall.")
-    created_by: str = Field(..., description="UUID of the user raising the complaint.")
+    ``hall_id`` and ``created_by`` are intentionally absent: they are
+    derived server-side from the authenticated user (current_user.hall_id
+    and current_user.id) and must never be accepted from the client.
+    """
 
 
 # ---------------------------------------------------------------------------
