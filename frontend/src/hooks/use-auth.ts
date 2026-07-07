@@ -4,9 +4,13 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { getMe, login, register } from "@/services/auth";
-import { getToken, removeToken, setToken } from "@/services/api-client";
+import {
+  extractApiError,
+  getToken,
+  removeToken,
+  setToken,
+} from "@/services/api-client";
 import { useAuthStore } from "@/store/auth-store";
-import { extractApiError } from "@/services/api-client";
 import type { LoginRequest, RegisterRequest } from "@/types/auth";
 
 // ---------------------------------------------------------------------------

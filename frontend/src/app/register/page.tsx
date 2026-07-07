@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import { registerSchema, type RegisterFormValues } from "@/lib/schemas";
 
@@ -52,7 +51,8 @@ export default function RegisterPage() {
     setIsLoading(true);
     try {
       // Strip confirmPassword — not part of the backend schema
-      const { confirmPassword: _, ...payload } = values;
+      const { confirmPassword, ...payload } = values;
+      void confirmPassword; // intentionally excluded from the API call
       await signUp(payload);
     } catch (err) {
       const message = extractApiError(err);

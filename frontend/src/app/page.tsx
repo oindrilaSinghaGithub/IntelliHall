@@ -4,29 +4,30 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
-import { useAuthStore } from "@/store/auth-store";
 import { getToken } from "@/services/api-client";
 
 /**
- * Root route ( / ) — redirects based on auth state:
- *  - Authenticated  → /dashboard
- *  - Unauthenticated → /login
+ * Root route ( / ) — redirects based on JWT presence in localStorage.
  *
- * The landing page (Hero, Features, Footer) remains accessible at /home
- * or directly from the Navbar.
+ * Why we check the token directly instead of useAuthStore().isAuthenticated:
+ *   Zustand's persist middleware rehydrates localStorage asynchronously on
+ *   the first render. During that gap, isAuthenticated is always `false`
+ *   even when the user has a valid JWT, causing a spurious redirect to /login.
+ *   Reading the token directly from localStorage is synchronous and correct.
+ *
+ *   The actual session validity is confirmed by AuthGuard (which calls /me).
  */
 export default function RootPage() {
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
 
   useEffect(() => {
     const token = getToken();
-    if (token && isAuthenticated) {
+    if (token) {
       router.replace("/dashboard");
     } else {
       router.replace("/login");
     }
-  }, [isAuthenticated, router]);
+  }, [router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">
