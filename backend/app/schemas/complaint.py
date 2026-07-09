@@ -303,6 +303,7 @@ class ComplaintRead(ComplaintBase):
     created_by: str = Field(..., description="UUID of the creating user.")
     created_at: datetime = Field(..., description="UTC creation timestamp.")
     updated_at: datetime = Field(..., description="UTC last-update timestamp.")
+    student_name: str | None = Field(default=None, description="Display name of the creator student.")
 
     images: list[ComplaintImageRead] = Field(
         default_factory=list,
@@ -333,3 +334,9 @@ class ComplaintSummary(BaseModel):
     status: ComplaintStatus = Field(..., description="Current lifecycle status.")
     category: ComplaintCategory = Field(..., description="Maintenance category.")
     created_at: datetime = Field(..., description="UTC creation timestamp.")
+    complaint_type: ComplaintType = Field(..., description="Type of the complaint.")
+    room_number: str | None = Field(default=None, description="Room number for personal complaints.")
+    block: str | None = Field(default=None, description="Block wing for common area complaints.")
+    floor: str | None = Field(default=None, description="Floor level for common area complaints.")
+    common_area: str | None = Field(default=None, description="Common area location name.")
+    student_name: str | None = Field(default=None, description="Display name of the creator student.")

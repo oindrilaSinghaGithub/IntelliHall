@@ -45,6 +45,10 @@ class UserBase(BaseModel):
         default=None,
         description="UUID of the hall this user belongs to.",
     )
+    hall_name: str | None = Field(
+        default=None,
+        description="Full display name of the hall this user belongs to.",
+    )
 
 
 # ---------------------------------------------------------------------------

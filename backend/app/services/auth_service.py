@@ -47,6 +47,14 @@ class AuthService:
                 detail="A user with this e-mail address already exists.",
             )
 
+        from app.repositories.hall_repository import HallRepository
+        hall = await HallRepository.get_by_id(self._repo._session, payload.hall_id)
+        if hall is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Hall with ID '{payload.hall_id}' does not exist.",
+            )
+
         user = User(
             name=payload.name,
             email=payload.email,

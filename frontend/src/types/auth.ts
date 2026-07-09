@@ -8,6 +8,7 @@ export interface User {
   email: string;
   role: UserRole;
   hall_id: string | null;
+  hall_name: string | null;
   created_at: string;
   updated_at: string;
 }

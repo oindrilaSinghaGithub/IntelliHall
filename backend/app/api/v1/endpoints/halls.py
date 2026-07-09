@@ -45,7 +45,7 @@ from app.schemas.complaint import (
     HallComplaintFilters,
     PaginatedResponse,
 )
-from app.schemas.hall import AssignUserRequest, HallCreate, HallRead, HallUpdate
+from app.schemas.hall import AssignUserRequest, HallCreate, HallRead, HallUpdate, HallPublicRead
 from app.schemas.user import UserRead
 from app.services.complaint_service import ComplaintService
 from app.services.hall_service import HallService
@@ -121,6 +121,31 @@ async def list_halls(
     """Return all halls (requires authentication)."""
     halls = await HallService.list_all(session)
     return [HallRead.model_validate(h) for h in halls]
+
+
+# ---------------------------------------------------------------------------
+# GET /public
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/public",
+    response_model=list[HallPublicRead],
+    status_code=status.HTTP_200_OK,
+    summary="List all halls publicly",
+    description=(
+        "Return a public list of every hall in the system, "
+        "containing only ID and Name. Does not require authentication."
+    ),
+    responses={
+        200: {"description": "List of public halls (may be empty)."},
+    },
+)
+async def list_halls_public(
+    session: DBSession,
+) -> list[HallPublicRead]:
+    """Return all halls publicly (does not require authentication)."""
+    halls = await HallService.list_all(session)
+    return [HallPublicRead.model_validate(h) for h in halls]
 
 
 # ---------------------------------------------------------------------------

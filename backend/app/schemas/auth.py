@@ -45,9 +45,9 @@ class RegisterRequest(BaseModel):
         default=UserRole.STUDENT,
         description="Role of the user. Defaults to STUDENT.",
     )
-    hall_id: str | None = Field(
-        default=None,
-        description="UUID of the hall this user belongs to (optional).",
+    hall_id: str = Field(
+        ...,
+        description="UUID of the hall this user belongs to.",
     )
 
 
