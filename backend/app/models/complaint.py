@@ -252,6 +252,11 @@ class Complaint(TimestampedBase):
         Index("ix_complaints_created_at", "created_at"),
     )
 
+    @property
+    def student_name(self) -> str | None:
+        """Return the display name of the student who created the complaint."""
+        return self.creator.name if self.creator else None
+
     # ------------------------------------------------------------------
     # Repr
     # ------------------------------------------------------------------

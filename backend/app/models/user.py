@@ -94,6 +94,11 @@ class User(TimestampedBase):
         lazy="selectin",
     )
 
+    @property
+    def hall_name(self) -> str | None:
+        """Return the readable name of the user's assigned residential hall."""
+        return self.hall.name if self.hall else None
+
     # ------------------------------------------------------------------
     # Repr
     # ------------------------------------------------------------------

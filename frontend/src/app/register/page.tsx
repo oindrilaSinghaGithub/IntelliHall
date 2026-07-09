@@ -19,10 +19,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
+import { useHalls } from "@/hooks/use-halls";
 import { registerSchema, type RegisterFormValues } from "@/lib/schemas";
 
 export default function RegisterPage() {
   const { signUp, extractApiError } = useAuth();
+  const { data: halls, isLoading: isHallsLoading, error: hallsError } = useHalls();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,6 +44,7 @@ export default function RegisterPage() {
       password: "",
       confirmPassword: "",
       role: "student",
+      hall_id: "",
     },
   });
 
@@ -140,7 +143,9 @@ export default function RegisterPage() {
                     <button
                       key={role}
                       type="button"
-                      onClick={() => setValue("role", role)}
+                      onClick={() => {
+                        setValue("role", role);
+                      }}
                       className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-all ${
                         selectedRole === role
                           ? "border-primary bg-primary/10 text-primary"
@@ -156,6 +161,44 @@ export default function RegisterPage() {
                     <span>⚠</span>
                     Hall admin accounts require approval from the warden.
                   </p>
+                )}
+              </div>
+
+              {/* Hall Selector (Mandatory for both) */}
+              <div className="space-y-2">
+                <Label htmlFor="hall_id">Hall of Residence</Label>
+                {isHallsLoading ? (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 border border-border/40 rounded-lg p-2.5">
+                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                    Loading halls of residence...
+                  </div>
+                ) : hallsError ? (
+                  <div className="text-xs text-destructive bg-destructive/5 border border-destructive/20 rounded-lg p-2.5">
+                    Failed to load halls. Please refresh.
+                  </div>
+                ) : !halls || halls.length === 0 ? (
+                  <div className="text-xs text-muted-foreground bg-muted/30 border border-border/40 rounded-lg p-2.5">
+                    No halls available. Contact administration.
+                  </div>
+                ) : (
+                  <select
+                    id="hall_id"
+                    className={`flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-foreground ${
+                      errors.hall_id ? "border-destructive focus-visible:ring-destructive" : ""
+                    }`}
+                    {...register("hall_id")}
+                    disabled={isLoading}
+                  >
+                    <option value="">Select your hall of residence...</option>
+                    {halls.map((h) => (
+                      <option key={h.id} value={h.id}>
+                        {h.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {errors.hall_id && (
+                  <p className="text-xs text-destructive">{errors.hall_id.message}</p>
                 )}
               </div>
 

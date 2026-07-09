@@ -49,7 +49,8 @@ export function useAuth() {
     const me = await getMe();
     setUser(me);
     toast.success(`Welcome back, ${me.name}!`);
-    router.push("/dashboard");
+    const redirectPath = me.role === "hall_admin" ? "/dashboard/admin" : "/dashboard";
+    router.push(redirectPath);
   }
 
   // ------------------------------------------------------------------
@@ -61,7 +62,8 @@ export function useAuth() {
     setToken(access_token);
     setUser(newUser);
     toast.success(`Account created! Welcome, ${newUser.name}!`);
-    router.push("/dashboard");
+    const redirectPath = newUser.role === "hall_admin" ? "/dashboard/admin" : "/dashboard";
+    router.push(redirectPath);
   }
 
   // ------------------------------------------------------------------

@@ -101,3 +101,17 @@ class AssignUserRequest(BaseModel):
         ...,
         description="UUID of the user to assign to this hall.",
     )
+
+
+# ---------------------------------------------------------------------------
+# Public Read
+# ---------------------------------------------------------------------------
+
+class HallPublicRead(BaseModel):
+    """Schema returned by GET /halls/public. Exposes only id and name."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str = Field(..., description="UUID primary key.")
+    name: str = Field(..., description="Full display name of the hall.")
+

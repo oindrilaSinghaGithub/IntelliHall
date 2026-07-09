@@ -12,6 +12,8 @@ interface AuthGuardProps {
   children: React.ReactNode;
 }
 
+let hasRefetchedProfile = false;
+
 /**
  * Wraps protected pages.
  *
@@ -19,7 +21,8 @@ interface AuthGuardProps {
  *  - If there is no JWT in localStorage → redirect to /login.
  *  - If there is a JWT but no user in the store (e.g. hard refresh) →
  *    re-fetch GET /api/v1/auth/me to rehydrate the store, then render.
- *  - If there is a JWT and a user in the store → render immediately.
+ *  - If there is a JWT and a user in the store → render immediately,
+ *    and sync user details once in the background to update cache.
  */
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
@@ -41,11 +44,22 @@ export function AuthGuard({ children }: AuthGuardProps) {
         try {
           const me = await getMe();
           setUser(me);
+          hasRefetchedProfile = true;
         } catch {
           clearAuth();
           router.replace("/login");
           return;
         }
+      } else if (!hasRefetchedProfile) {
+        // Hydrated from cache: sync once in the background to update cached localStorage values
+        getMe()
+          .then((me) => {
+            setUser(me);
+            hasRefetchedProfile = true;
+          })
+          .catch(() => {
+            hasRefetchedProfile = true;
+          });
       }
 
       setChecking(false);

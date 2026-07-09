@@ -45,6 +45,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies.auth import get_current_user
 from app.api.dependencies.halls import require_hall_admin
 from app.db.session import get_db
+from app.models.enums import UserRole
 from app.models.user import User
 from app.schemas.complaint import (
     ComplaintCreate,
@@ -157,7 +158,7 @@ async def list_my_complaints(
     responses={
         200: {"description": "Complaint detail (with images and status history)."},
         401: {"description": "Missing or invalid Bearer token."},
-        403: {"description": "Complaint belongs to another user."},
+        403: {"description": "Complaint belongs to another user/hall."},
         404: {"description": "Complaint not found."},
     },
     tags=["complaints"],
@@ -167,8 +168,11 @@ async def get_my_complaint(
     session: DBSession,
     current_user: AuthUser,
 ) -> ComplaintRead:
-    """Fetch a single complaint by ID — must belong to the calling user."""
-    complaint = await ComplaintService.get_for_student(session, complaint_id, current_user)
+    """Fetch a single complaint by ID — must belong to the calling user or admin's hall."""
+    if current_user.role == UserRole.HALL_ADMIN:
+        complaint = await ComplaintService.get_for_admin(session, complaint_id, current_user)
+    else:
+        complaint = await ComplaintService.get_for_student(session, complaint_id, current_user)
     return ComplaintRead.model_validate(complaint)
 
 
