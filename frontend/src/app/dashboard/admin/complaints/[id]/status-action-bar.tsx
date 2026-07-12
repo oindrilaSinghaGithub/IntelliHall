@@ -5,15 +5,16 @@ import { AlertCircle, ArrowRight, CheckCircle2, ShieldAlert } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { RemarksDialog } from "./remarks-dialog";
+import { AssignmentDialog } from "@/components/admin/assignment-dialog";
+import { CompletionDialog } from "@/components/admin/completion-dialog";
 import { useUpdateComplaintStatus } from "@/hooks/use-complaints";
-import type { ComplaintStatus } from "@/types/complaint";
+import type { Complaint, ComplaintStatus } from "@/types/complaint";
 
 interface TransitionConfig {
   primary: ComplaintStatus | null;
   secondary: ComplaintStatus | null;
 }
 
-// Centralized FSM transition mapping matching backend rules, split by visual/workflow priority
 const FSM_TRANSITIONS: Record<ComplaintStatus, TransitionConfig> = {
   submitted: { primary: "verified", secondary: "visit_failed_room_locked" },
   verified: { primary: "scheduled", secondary: "visit_failed_room_locked" },
@@ -21,11 +22,11 @@ const FSM_TRANSITIONS: Record<ComplaintStatus, TransitionConfig> = {
   in_progress: { primary: "completed", secondary: "visit_failed_room_locked" },
   completed: { primary: "waiting_student_confirmation", secondary: "visit_failed_room_locked" },
   waiting_student_confirmation: { primary: "closed", secondary: "visit_failed_room_locked" },
+  reopened: { primary: "verified", secondary: null },
   closed: { primary: null, secondary: null },
   visit_failed_room_locked: { primary: null, secondary: null },
 };
 
-// User-friendly transition labels
 const STATUS_LABELS: Record<ComplaintStatus, string> = {
   submitted: "Submitted",
   verified: "Verify Complaint",
@@ -33,47 +34,55 @@ const STATUS_LABELS: Record<ComplaintStatus, string> = {
   in_progress: "Start Work (In Progress)",
   completed: "Mark Completed",
   waiting_student_confirmation: "Request Student Confirmation",
+  reopened: "Re-verify",
   closed: "Close Ticket",
   visit_failed_room_locked: "Visit Failed (Room Locked)",
 };
 
+// Statuses that need a special dialog instead of the plain remarks dialog
+const NEEDS_ASSIGNMENT_DIALOG: ComplaintStatus[] = ["scheduled"];
+const NEEDS_COMPLETION_DIALOG: ComplaintStatus[] = ["completed"];
+
 interface StatusActionBarProps {
   complaintId: string;
   currentStatus: ComplaintStatus;
+  onStatusUpdated?: (complaint: Complaint) => void;
 }
 
-export function StatusActionBar({ complaintId, currentStatus }: StatusActionBarProps) {
+export function StatusActionBar({
+  complaintId,
+  currentStatus,
+  onStatusUpdated,
+}: StatusActionBarProps) {
   const [selectedTarget, setSelectedTarget] = useState<ComplaintStatus | null>(null);
+  const [showAssignmentDialog, setShowAssignmentDialog] = useState(false);
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+
   const updateStatusMutation = useUpdateComplaintStatus(complaintId);
 
   const config = FSM_TRANSITIONS[currentStatus] || { primary: null, secondary: null };
   const hasTransitions = config.primary !== null || config.secondary !== null;
 
   const handleOpenDialog = (target: ComplaintStatus) => {
-    setSelectedTarget(target);
+    if (NEEDS_ASSIGNMENT_DIALOG.includes(target)) {
+      setShowAssignmentDialog(true);
+    } else if (NEEDS_COMPLETION_DIALOG.includes(target)) {
+      setShowCompletionDialog(true);
+    } else {
+      setSelectedTarget(target);
+    }
   };
 
-  const handleCloseDialog = () => {
-    setSelectedTarget(null);
-  };
+  const handleCloseDialog = () => setSelectedTarget(null);
 
   const handleConfirmTransition = (remarks: string) => {
     if (!selectedTarget) return;
-
     updateStatusMutation.mutate(
-      {
-        new_status: selectedTarget,
-        remarks: remarks.trim() ? remarks : null,
-      },
-      {
-        onSuccess: () => {
-          handleCloseDialog();
-        },
-      }
+      { new_status: selectedTarget, remarks: remarks.trim() || null },
+      { onSuccess: () => handleCloseDialog() }
     );
   };
 
-  // Determine dialog strings
   const getDialogDetails = (target: ComplaintStatus | null) => {
     if (!target) return { title: "", desc: "", btn: "Confirm" };
     if (target === "visit_failed_room_locked") {
@@ -83,9 +92,16 @@ export function StatusActionBar({ complaintId, currentStatus }: StatusActionBarP
         btn: "Record Failure",
       };
     }
+    if (target === "closed") {
+      return {
+        title: "Close Complaint",
+        desc: "Close this complaint as fully resolved. This requires student confirmation to have been given.",
+        btn: "Close Complaint",
+      };
+    }
     return {
-      title: `Advance Status to ${STATUS_LABELS[target] || target}`,
-      desc: `Are you sure you want to transition this complaint from '${currentStatus}' to '${target}'? You can add optional remarks below.`,
+      title: `Advance to: ${STATUS_LABELS[target] || target}`,
+      desc: `Transition this complaint from '${currentStatus}' to '${target}'. You may add optional remarks below.`,
       btn: "Confirm Transition",
     };
   };
@@ -94,8 +110,8 @@ export function StatusActionBar({ complaintId, currentStatus }: StatusActionBarP
 
   return (
     <div className="space-y-4">
-      {/* Informational banners based on current state */}
-      {currentStatus === "completed" && (
+      {/* Informational banners */}
+      {currentStatus === "waiting_student_confirmation" && (
         <Card className="border border-blue-500/20 bg-blue-500/5">
           <CardContent className="p-4 flex items-start gap-3">
             <CheckCircle2 className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
@@ -104,7 +120,7 @@ export function StatusActionBar({ complaintId, currentStatus }: StatusActionBarP
                 Awaiting Student Confirmation
               </p>
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                This complaint has been completed. The workflow is awaiting the student resident to confirm resolution from their dashboard. You can manually close it if required by requesting student confirmation.
+                The repair has been marked complete. The student must confirm the fix before you can close the ticket.
               </p>
             </div>
           </CardContent>
@@ -117,10 +133,10 @@ export function StatusActionBar({ complaintId, currentStatus }: StatusActionBarP
             <ShieldAlert className="h-5 w-5 text-rose-500 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-rose-600 dark:text-rose-400">
-                Visit Failed - Room Locked
+                Visit Failed — Room Locked
               </p>
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                This complaint is in a failed visit state. No further status changes can be performed. The student must coordinate a new time or re-raise a ticket.
+                The student must coordinate a new time or re-raise a ticket.
               </p>
             </div>
           </CardContent>
@@ -132,18 +148,16 @@ export function StatusActionBar({ complaintId, currentStatus }: StatusActionBarP
           <CardContent className="p-4 flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-muted-foreground">
-                Ticket Closed
-              </p>
+              <p className="text-sm font-semibold text-muted-foreground">Ticket Closed</p>
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                This maintenance complaint has been successfully resolved and closed. It is kept as historical data.
+                This complaint has been resolved and closed.
               </p>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Action Buttons Panel */}
+      {/* Action Buttons */}
       {hasTransitions && (
         <Card className="border border-border/50 bg-card">
           <CardContent className="p-4">
@@ -151,7 +165,6 @@ export function StatusActionBar({ complaintId, currentStatus }: StatusActionBarP
               Workflow Status Controls
             </p>
             <div className="flex flex-col gap-2.5">
-              {/* Primary Forward Action */}
               {config.primary && (
                 <Button
                   variant="default"
@@ -166,8 +179,6 @@ export function StatusActionBar({ complaintId, currentStatus }: StatusActionBarP
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Button>
               )}
-
-              {/* Secondary Warning Action */}
               {config.secondary && (
                 <Button
                   variant="outline"
@@ -187,7 +198,7 @@ export function StatusActionBar({ complaintId, currentStatus }: StatusActionBarP
         </Card>
       )}
 
-      {/* Confirmation Remarks Dialog */}
+      {/* Plain remarks dialog (for non-special transitions) */}
       <RemarksDialog
         key={selectedTarget || "none"}
         isOpen={selectedTarget !== null}
@@ -197,6 +208,28 @@ export function StatusActionBar({ complaintId, currentStatus }: StatusActionBarP
         description={dialogDetails.desc}
         confirmText={dialogDetails.btn}
         isLoading={updateStatusMutation.isPending}
+      />
+
+      {/* Assignment dialog — for SCHEDULED transition */}
+      <AssignmentDialog
+        complaintId={complaintId}
+        open={showAssignmentDialog}
+        onClose={() => setShowAssignmentDialog(false)}
+        onSuccess={(complaint) => {
+          setShowAssignmentDialog(false);
+          onStatusUpdated?.(complaint);
+        }}
+      />
+
+      {/* Completion dialog — for COMPLETED transition */}
+      <CompletionDialog
+        complaintId={complaintId}
+        open={showCompletionDialog}
+        onClose={() => setShowCompletionDialog(false)}
+        onSuccess={(complaint) => {
+          setShowCompletionDialog(false);
+          onStatusUpdated?.(complaint);
+        }}
       />
     </div>
   );

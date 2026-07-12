@@ -5,10 +5,14 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Building2,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardCheck,
+  FileImage,
   LogOut,
   MapPin,
-  FileImage,
   ShieldAlert,
+  Wrench,
 } from "lucide-react";
 import axios from "axios";
 
@@ -20,6 +24,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useComplaint } from "@/hooks/use-complaints";
 import { ComplaintTimeline } from "@/components/shared/complaint-timeline";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
+import { NotificationBell } from "@/components/shared/notification-bell";
 
 // Import broken-down subcomponents
 import { ComplaintDetailHeader } from "./complaint-detail-header";
@@ -79,6 +84,7 @@ export default function AdminComplaintDetailPage({ params }: PageProps) {
                 <p className="text-xs text-muted-foreground">{user?.email}</p>
               </div>
               <Badge variant="default">Hall Admin</Badge>
+              <NotificationBell />
               <Button
                 variant="ghost"
                 size="sm"
@@ -265,16 +271,98 @@ export default function AdminComplaintDetailPage({ params }: PageProps) {
                   {/* Right layout: Sidebar control panels */}
                   <div className="space-y-6">
                     {/* FSM Status Transitions */}
-                    <StatusActionBar complaintId={complaint.id} currentStatus={complaint.status} />
-
-                    {/* Assign Technician Form Panel */}
-                    <AssignmentPanel
-                      key={complaint.updated_at}
+                    <StatusActionBar
                       complaintId={complaint.id}
-                      initialMaintenanceType={complaint.maintenance_type}
-                      initialAssignee={complaint.current_assignee}
-                      initialVisitTime={complaint.preferred_visit_time}
+                      currentStatus={complaint.status}
+                      onStatusUpdated={() => {
+                        // React Query will automatically refetch via invalidation in the hooks
+                      }}
                     />
+
+                    {/* Assignment info panel (read-only, shown when scheduled) */}
+                    {complaint.assignment && (
+                      <Card className="border border-border/50 bg-card">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm font-bold flex items-center gap-2">
+                            <CalendarDays className="h-4 w-4 text-primary" />
+                            Scheduled Assignment
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-xs">
+                          <div className="grid grid-cols-2 gap-y-2">
+                            <span className="text-muted-foreground font-medium">Worker:</span>
+                            <span className="font-semibold text-foreground">{complaint.assignment.worker_name}</span>
+                            <span className="text-muted-foreground font-medium">Type:</span>
+                            <span className="font-semibold text-foreground capitalize">{complaint.assignment.worker_type.replace("_", " ")}</span>
+                            <span className="text-muted-foreground font-medium">Visit Date:</span>
+                            <span className="font-semibold text-foreground">
+                              {new Date(complaint.assignment.scheduled_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                            </span>
+                            {complaint.assignment.scheduled_time && (
+                              <>
+                                <span className="text-muted-foreground font-medium">Time Slot:</span>
+                                <span className="font-semibold text-foreground">{complaint.assignment.scheduled_time}</span>
+                              </>
+                            )}
+                            {complaint.assignment.admin_remarks && (
+                              <>
+                                <span className="text-muted-foreground font-medium">Remarks:</span>
+                                <span className="font-semibold text-foreground">{complaint.assignment.admin_remarks}</span>
+                              </>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Completion slip info panel */}
+                    {complaint.completion_slip && (
+                      <Card className="border border-border/50 bg-card">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm font-bold flex items-center gap-2">
+                            <ClipboardCheck className="h-4 w-4 text-emerald-500" />
+                            Completion Slip
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-xs">
+                          <div className="grid grid-cols-2 gap-y-2">
+                            <span className="text-muted-foreground font-medium">Work Done:</span>
+                            <span className="font-semibold text-foreground">{complaint.completion_slip.work_done}</span>
+                            <span className="text-muted-foreground font-medium">Completed:</span>
+                            <span className="font-semibold text-foreground">
+                              {new Date(complaint.completion_slip.completion_date).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                            </span>
+                            <span className="text-muted-foreground font-medium">Student:</span>
+                            <span className={`font-bold uppercase text-[10px] px-1.5 py-0.5 rounded ${
+                              complaint.completion_slip.student_confirmation_status === "confirmed"
+                                ? "bg-emerald-500/10 text-emerald-600"
+                                : complaint.completion_slip.student_confirmation_status === "rejected"
+                                ? "bg-red-500/10 text-red-600"
+                                : "bg-amber-500/10 text-amber-600"
+                            }`}>
+                              {complaint.completion_slip.student_confirmation_status}
+                            </span>
+                            {complaint.completion_slip.student_comment && (
+                              <>
+                                <span className="text-muted-foreground font-medium">Student Comment:</span>
+                                <span className="font-semibold text-foreground">{complaint.completion_slip.student_comment}</span>
+                              </>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Legacy assignment panel (only shown when not yet scheduled) */}
+                    {!complaint.assignment && (
+                      <AssignmentPanel
+                        key={complaint.updated_at}
+                        complaintId={complaint.id}
+                        initialMaintenanceType={complaint.maintenance_type}
+                        initialAssignee={complaint.current_assignee}
+                        initialVisitTime={complaint.preferred_visit_time}
+                      />
+                    )}
 
                     {/* Timeline card */}
                     <Card className="border border-border/50 bg-card">

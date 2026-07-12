@@ -49,6 +49,16 @@ class RegisterRequest(BaseModel):
         ...,
         description="UUID of the hall this user belongs to.",
     )
+    roll_number: str | None = Field(
+        default=None,
+        max_length=50,
+        description="Student roll number (e.g. 21CS10001). Optional.",
+    )
+    room_number: str | None = Field(
+        default=None,
+        max_length=20,
+        description="Student's room number at registration (e.g. B-302). Optional.",
+    )
 
 
 class LoginRequest(BaseModel):

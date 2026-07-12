@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useHallComplaints } from "@/hooks/use-complaints";
 import { AdminComplaintsTable } from "@/components/admin/admin-complaints-table";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
+import { NotificationBell } from "@/components/shared/notification-bell";
 
 export default function AdminComplaintQueuePage() {
   const { user, signOut } = useAuth();
@@ -95,6 +96,7 @@ export default function AdminComplaintQueuePage() {
               <p className="text-xs text-muted-foreground">{user?.email}</p>
             </div>
             <Badge variant="default">Hall Admin</Badge>
+            <NotificationBell />
             <Button
               variant="ghost"
               size="sm"
@@ -156,6 +158,8 @@ export default function AdminComplaintQueuePage() {
                     <option value="scheduled">Scheduled</option>
                     <option value="in_progress">In Progress</option>
                     <option value="completed">Completed</option>
+                    <option value="waiting_student_confirmation">Awaiting Confirmation</option>
+                    <option value="reopened">Reopened</option>
                     <option value="visit_failed_room_locked">Failed (Locked)</option>
                     <option value="closed">Closed</option>
                   </select>

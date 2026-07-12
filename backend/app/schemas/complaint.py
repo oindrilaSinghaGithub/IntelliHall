@@ -21,7 +21,7 @@ ComplaintFilters           — query-parameter model for list filtering / sortin
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -35,8 +35,6 @@ from app.models.enums import (
 )
 
 T = TypeVar("T")
-
-
 # ---------------------------------------------------------------------------
 # Generic paginated envelope
 # ---------------------------------------------------------------------------
@@ -129,6 +127,36 @@ class StatusUpdateRequest(BaseModel):
         default=None,
         max_length=1000,
         description="Optional note explaining the reason for this transition.",
+    )
+
+    # Assignment fields (required only when new_status == SCHEDULED)
+    worker_name: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Worker name (required for SCHEDULED transition).",
+    )
+    worker_type: MaintenanceType | None = Field(
+        default=None,
+        description="Worker type (required for SCHEDULED transition).",
+    )
+    scheduled_date: date | None = Field(
+        default=None,
+        description="Scheduled visit date (required for SCHEDULED transition).",
+    )
+    scheduled_time: str | None = Field(
+        default=None,
+        max_length=50,
+        description="Optional time slot (e.g. '10:00–12:00').",
+    )
+    admin_remarks: str | None = Field(
+        default=None,
+        description="Optional admin remarks for assignment.",
+    )
+
+    # Completion field (required only when new_status == COMPLETED)
+    work_done: str | None = Field(
+        default=None,
+        description="Work done description (required for COMPLETED transition).",
     )
 
 
@@ -314,6 +342,16 @@ class ComplaintRead(ComplaintBase):
         description="Status-change audit trail.",
     )
 
+    # New relationships for maintenance workflow
+    assignment: "AssignmentRead | None" = Field(
+        default=None,
+        description="Worker assignment (when complaint is scheduled).",
+    )
+    completion_slip: "CompletionSlipRead | None" = Field(
+        default=None,
+        description="Completion slip (when complaint is marked complete).",
+    )
+
 
 # ---------------------------------------------------------------------------
 # Complaint — Summary (lightweight list view)
@@ -340,3 +378,14 @@ class ComplaintSummary(BaseModel):
     floor: str | None = Field(default=None, description="Floor level for common area complaints.")
     common_area: str | None = Field(default=None, description="Common area location name.")
     student_name: str | None = Field(default=None, description="Display name of the creator student.")
+
+# ---------------------------------------------------------------------------
+# Forward references resolution
+# ---------------------------------------------------------------------------
+
+# Import assignment and completion slip schemas for forward references
+from app.schemas.assignment import AssignmentRead  # noqa: E402
+from app.schemas.completion_slip import CompletionSlipRead  # noqa: E402
+
+# Rebuild models to resolve forward references
+ComplaintRead.model_rebuild()

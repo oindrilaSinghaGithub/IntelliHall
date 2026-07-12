@@ -55,12 +55,29 @@ class AuthService:
                 detail=f"Hall with ID '{payload.hall_id}' does not exist.",
             )
 
+        from datetime import datetime, timezone
+        from app.models.enums import HallVerificationStatus
+
+        resolved_role = payload.role if payload.role is not None else UserRole.STUDENT
+
+        # Hall Admins are trusted accounts — bypass verification entirely.
+        # Students start as PENDING and must be approved by their Hall Admin.
+        is_admin = resolved_role == UserRole.HALL_ADMIN
+        verification_status = (
+            HallVerificationStatus.APPROVED if is_admin else HallVerificationStatus.PENDING
+        )
+        verified_at = datetime.now(timezone.utc) if is_admin else None
+
         user = User(
             name=payload.name,
             email=payload.email,
             password_hash=hash_password(payload.password),
-            role=payload.role if payload.role is not None else UserRole.STUDENT,
+            role=resolved_role,
             hall_id=payload.hall_id,
+            roll_number=payload.roll_number,
+            room_number=payload.room_number,
+            hall_verification_status=verification_status,
+            hall_verified_at=verified_at,
         )
         user = await self._repo.create(user)
 

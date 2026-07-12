@@ -8,10 +8,12 @@ import { AuthGuard } from "@/components/shared/auth-guard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
-import { useComplaints } from "@/hooks/use-complaints";
+import { useComplaints, useComplaint } from "@/hooks/use-complaints";
 import { ComplaintCard } from "@/components/shared/complaint-card";
+import { StudentConfirmationCard } from "@/components/shared/student-confirmation-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
+import { NotificationBell } from "@/components/shared/notification-bell";
 
 export default function ComplaintsListPage() {
   const { user, signOut } = useAuth();
@@ -53,6 +55,7 @@ export default function ComplaintsListPage() {
               <Badge variant={user?.role === "hall_admin" ? "default" : "secondary"}>
                 {user?.role === "hall_admin" ? "Hall Admin" : "Student"}
               </Badge>
+              <NotificationBell />
               <Button
                 variant="ghost"
                 size="sm"
@@ -119,6 +122,7 @@ export default function ComplaintsListPage() {
                     <option value="in_progress">In Progress</option>
                     <option value="completed">Completed</option>
                     <option value="waiting_student_confirmation">Awaiting Confirmation</option>
+                    <option value="reopened">Reopened</option>
                     <option value="closed">Closed</option>
                     <option value="visit_failed_room_locked">Visit Failed (Locked)</option>
                   </select>
@@ -177,6 +181,13 @@ export default function ComplaintsListPage() {
               />
             ) : (
               <div className="space-y-6">
+                {/* Confirmation banner — shown at the very top for any awaiting-confirmation complaint */}
+                {data.items
+                  .filter((c) => c.status === "waiting_student_confirmation")
+                  .map((c) => (
+                    <ConfirmationCardLoader key={c.id} complaintId={c.id} />
+                  ))}
+
                 <div className="grid gap-4">
                   {data.items.map((complaint) => (
                     <ComplaintCard key={complaint.id} complaint={complaint} />
@@ -214,5 +225,22 @@ export default function ComplaintsListPage() {
         </main>
       </div>
     </AuthGuard>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Helper: loads full complaint detail so StudentConfirmationCard gets the
+// completion_slip data (the summary list doesn't include it).
+// ---------------------------------------------------------------------------
+
+function ConfirmationCardLoader({ complaintId }: { complaintId: string }) {
+  const { data: complaint } = useComplaint(complaintId);
+  if (!complaint) return null;
+  return (
+    <StudentConfirmationCard
+      complaint={complaint}
+      onConfirmed={() => {}}
+      onRejected={() => {}}
+    />
   );
 }

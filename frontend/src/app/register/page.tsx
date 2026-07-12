@@ -45,6 +45,8 @@ export default function RegisterPage() {
       confirmPassword: "",
       role: "student",
       hall_id: "",
+      roll_number: "",
+      room_number: "",
     },
   });
 
@@ -202,7 +204,55 @@ export default function RegisterPage() {
                 )}
               </div>
 
-              {/* Password */}
+              {/* Roll Number (optional) */}
+              {selectedRole === "student" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="roll_number">
+                      Roll Number{" "}
+                      <span className="text-muted-foreground font-normal">(optional)</span>
+                    </Label>
+                    <Input
+                      id="roll_number"
+                      type="text"
+                      placeholder="e.g. 21CS10001"
+                      {...register("roll_number")}
+                      disabled={isLoading}
+                    />
+                    {errors.roll_number && (
+                      <p className="text-xs text-destructive">{errors.roll_number.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="room_number">
+                      Room Number{" "}
+                      <span className="text-muted-foreground font-normal">(optional)</span>
+                    </Label>
+                    <Input
+                      id="room_number"
+                      type="text"
+                      placeholder="e.g. B-302"
+                      {...register("room_number")}
+                      disabled={isLoading}
+                    />
+                    {errors.room_number && (
+                      <p className="text-xs text-destructive">{errors.room_number.message}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Verification notice for students */}
+              {selectedRole === "student" && (
+                <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 dark:border-amber-800/40 dark:bg-amber-900/20">
+                  <span className="mt-0.5 text-base leading-none">🏛️</span>
+                  <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-400">
+                    <span className="font-semibold">Hall verification required.</span> After
+                    registration, your Hall Admin must approve your affiliation before you
+                    can submit complaints. You can access your dashboard immediately.
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">

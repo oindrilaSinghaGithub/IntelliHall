@@ -4,10 +4,10 @@ IntelliHall — User Pydantic Schemas
 Defines request/response shapes for the User resource.
 
 Schema hierarchy:
-    UserBase        – shared readable fields (name, email, role, hall_id)
+    UserBase        – shared readable fields (name, email, role, hall_id, verification)
     ├── UserCreate  – adds password (plain-text, hashed by service layer)
     ├── UserUpdate  – all fields optional for PATCH
-    └── UserRead    – adds id, timestamps; excludes password_hash
+    └── UserRead    – adds id, timestamps, verification detail; excludes password_hash
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.models.enums import UserRole
+from app.models.enums import HallVerificationStatus, UserRole
 
 
 # ---------------------------------------------------------------------------
@@ -49,6 +49,20 @@ class UserBase(BaseModel):
         default=None,
         description="Full display name of the hall this user belongs to.",
     )
+    roll_number: str | None = Field(
+        default=None,
+        max_length=50,
+        description="Student roll number (e.g. 21CS10001). Display only.",
+    )
+    room_number: str | None = Field(
+        default=None,
+        max_length=20,
+        description="Student's room number within the hall (e.g. B-302).",
+    )
+    hall_verification_status: HallVerificationStatus = Field(
+        default=HallVerificationStatus.PENDING,
+        description="Hall affiliation verification state: pending | approved | rejected.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -79,11 +93,31 @@ class UserUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     email: EmailStr | None = Field(default=None)
     role: UserRole | None = Field(default=None)
-    hall_id: str | None = Field(default=None)
+    hall_id: str | None = Field(
+        default=None,
+        description="Changing hall_id resets hall_verification_status to PENDING.",
+    )
+    room_number: str | None = Field(default=None, max_length=20)
+    roll_number: str | None = Field(default=None, max_length=50)
     password: str | None = Field(
         default=None,
         min_length=8,
         description="New plain-text password (will be hashed before storage).",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Hall-only update (student PATCH /users/me/hall)
+# ---------------------------------------------------------------------------
+
+class UpdateHallRequest(BaseModel):
+    """Body for PATCH /users/me/hall — updates hall affiliation and resets verification."""
+
+    hall_id: str = Field(..., description="UUID of the new hall to affiliate with.")
+    room_number: str | None = Field(
+        default=None,
+        max_length=20,
+        description="Updated room number in the new hall (optional).",
     )
 
 
@@ -102,3 +136,17 @@ class UserRead(UserBase):
     id: str = Field(..., description="UUID primary key.")
     created_at: datetime = Field(..., description="UTC timestamp of creation.")
     updated_at: datetime = Field(..., description="UTC timestamp of last update.")
+
+    # Verification detail — exposed to admins and to the student themselves
+    verified_by_admin_id: str | None = Field(
+        default=None,
+        description="UUID of the admin who last actioned the verification.",
+    )
+    hall_verified_at: datetime | None = Field(
+        default=None,
+        description="UTC timestamp of the most recent verification action.",
+    )
+    hall_rejection_reason: str | None = Field(
+        default=None,
+        description="Reason provided by the admin when rejecting.",
+    )

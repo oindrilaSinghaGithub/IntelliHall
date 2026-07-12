@@ -25,6 +25,22 @@ class UserRole(str, enum.Enum):
     HALL_ADMIN = "hall_admin"
 
 
+class HallVerificationStatus(str, enum.Enum):
+    """
+    Lifecycle state of a student's hall-affiliation verification.
+
+    Flow:
+      PENDING  → APPROVED  (Hall Admin approves)
+      PENDING  → REJECTED  (Hall Admin rejects with optional reason)
+      APPROVED → PENDING   (Student changes their hall — triggers re-verification)
+      REJECTED → PENDING   (Student re-submits after editing hall/room)
+    """
+
+    PENDING  = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
 # ---------------------------------------------------------------------------
 # Complaint enums
 # ---------------------------------------------------------------------------
@@ -66,8 +82,10 @@ class ComplaintStatus(str, enum.Enum):
 
     Typical flow:
       SUBMITTED → VERIFIED → SCHEDULED → IN_PROGRESS
-      → COMPLETED → WAITING_STUDENT_CONFIRMATION → CLOSED
-      (or → VISIT_FAILED_ROOM_LOCKED → re-scheduled)
+      → COMPLETED (auto) → WAITING_STUDENT_CONFIRMATION
+      → CLOSED (after student confirms)
+      or → REOPENED → VERIFIED (if student rejects)
+      (or → VISIT_FAILED_ROOM_LOCKED from any state)
     """
 
     SUBMITTED = "submitted"
@@ -76,6 +94,7 @@ class ComplaintStatus(str, enum.Enum):
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     WAITING_STUDENT_CONFIRMATION = "waiting_student_confirmation"
+    REOPENED = "reopened"
     CLOSED = "closed"
     VISIT_FAILED_ROOM_LOCKED = "visit_failed_room_locked"
 
@@ -86,7 +105,17 @@ class MaintenanceType(str, enum.Enum):
     ELECTRICIAN = "electrician"
     PLUMBER = "plumber"
     CARPENTER = "carpenter"
+    MASON = "mason"
+    CLEANING_STAFF = "cleaning_staff"
     CIVIL = "civil"
     NETWORK = "network"
     HOUSEKEEPING = "housekeeping"
     OTHER = "other"
+
+
+class StudentConfirmationStatus(str, enum.Enum):
+    """Status of student confirmation on a completion slip."""
+
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    REJECTED = "rejected"

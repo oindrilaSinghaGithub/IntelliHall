@@ -40,6 +40,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, status
 from fastapi.responses import Response
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import get_current_user
@@ -56,6 +57,7 @@ from app.schemas.complaint import (
     PaginatedResponse,
     StatusUpdateRequest,
 )
+from app.schemas.completion_slip import CompletionSlipRead
 from app.services.complaint_service import ComplaintService
 
 router = APIRouter()
@@ -290,3 +292,106 @@ async def delete_complaint(
 ) -> None:
     """Hard-delete a complaint (HALL_ADMIN only, own hall)."""
     await ComplaintService.delete(session, complaint_id, current_user)
+
+
+# ---------------------------------------------------------------------------
+# GET /{complaint_id}/completion-slip  — Student/Admin: fetch completion slip
+# ---------------------------------------------------------------------------
+
+class ConfirmRepairRequest(BaseModel):
+    """Body for POST /complaints/{id}/confirm."""
+    comment: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="Optional comment from the student.",
+    )
+
+
+class RejectRepairRequest(BaseModel):
+    """Body for POST /complaints/{id}/reject."""
+    comment: str = Field(
+        ...,
+        min_length=5,
+        max_length=1000,
+        description="Mandatory comment explaining why the repair was rejected.",
+    )
+
+
+@router.get(
+    "/{complaint_id}/completion-slip",
+    response_model=CompletionSlipRead,
+    status_code=status.HTTP_200_OK,
+    summary="Get completion slip",
+    description=(
+        "Retrieve the digital completion slip for a complaint.\n\n"
+        "**Requires:** the complaint creator (student) or HALL_ADMIN of that hall."
+    ),
+    tags=["complaints"],
+)
+async def get_completion_slip(
+    complaint_id: Annotated[str, Path(description="UUID of the complaint.")],
+    session: DBSession,
+    current_user: AuthUser,
+) -> CompletionSlipRead:
+    """Fetch the completion slip for a complaint."""
+    slip = await ComplaintService.get_completion_slip(session, complaint_id, current_user)
+    return CompletionSlipRead.model_validate(slip)
+
+
+# ---------------------------------------------------------------------------
+# POST /{complaint_id}/confirm  — Student: confirm repair
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/{complaint_id}/confirm",
+    response_model=ComplaintRead,
+    status_code=status.HTTP_200_OK,
+    summary="Confirm repair",
+    description=(
+        "Student confirms the repair was completed satisfactorily.\n\n"
+        "**Requires:** the complaint creator. Complaint must be "
+        "`waiting_student_confirmation`."
+    ),
+    tags=["complaints"],
+)
+async def confirm_repair(
+    complaint_id: Annotated[str, Path(description="UUID of the complaint.")],
+    payload: ConfirmRepairRequest,
+    session: DBSession,
+    current_user: AuthUser,
+) -> ComplaintRead:
+    """Student confirms the repair."""
+    complaint = await ComplaintService.confirm_repair(
+        session, complaint_id, current_user, payload.comment
+    )
+    return ComplaintRead.model_validate(complaint)
+
+
+# ---------------------------------------------------------------------------
+# POST /{complaint_id}/reject  — Student: reject repair
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/{complaint_id}/reject",
+    response_model=ComplaintRead,
+    status_code=status.HTTP_200_OK,
+    summary="Reject repair",
+    description=(
+        "Student rejects the repair (issue persists).\n\n"
+        "**Requires:** the complaint creator. Complaint must be "
+        "`waiting_student_confirmation`. Comment is **mandatory**.\n\n"
+        "The complaint will be automatically reopened and returned to `verified` status."
+    ),
+    tags=["complaints"],
+)
+async def reject_repair(
+    complaint_id: Annotated[str, Path(description="UUID of the complaint.")],
+    payload: RejectRepairRequest,
+    session: DBSession,
+    current_user: AuthUser,
+) -> ComplaintRead:
+    """Student rejects the repair — complaint is reopened."""
+    complaint = await ComplaintService.reject_repair(
+        session, complaint_id, current_user, payload.comment
+    )
+    return ComplaintRead.model_validate(complaint)

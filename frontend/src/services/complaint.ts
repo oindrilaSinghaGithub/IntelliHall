@@ -3,7 +3,9 @@ import type {
   Complaint,
   ComplaintCreateRequest,
   ComplaintSummary,
+  CompletionSlip,
   PaginatedResponse,
+  StatusUpdateRequest,
 } from "@/types/complaint";
 
 // ---------------------------------------------------------------------------
@@ -54,11 +56,12 @@ export async function getHallComplaints(
 
 // ---------------------------------------------------------------------------
 // PATCH /api/v1/complaints/{complaint_id}/status (Admin transition status)
+// Accepts extended payload with assignment + completion fields.
 // ---------------------------------------------------------------------------
 
 export async function updateComplaintStatus(
   id: string,
-  data: { new_status: string; remarks?: string | null }
+  data: StatusUpdateRequest
 ): Promise<Complaint> {
   const response = await apiClient.patch<Complaint>(`/complaints/${id}/status`, data);
   return response.data;
@@ -84,3 +87,31 @@ export async function deleteComplaint(id: string): Promise<void> {
   await apiClient.delete(`/complaints/${id}`);
 }
 
+// ---------------------------------------------------------------------------
+// GET /api/v1/complaints/{complaint_id}/completion-slip
+// ---------------------------------------------------------------------------
+
+export async function getCompletionSlip(id: string): Promise<CompletionSlip> {
+  const response = await apiClient.get<CompletionSlip>(`/complaints/${id}/completion-slip`);
+  return response.data;
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/complaints/{complaint_id}/confirm
+// ---------------------------------------------------------------------------
+
+export async function confirmRepair(id: string, comment?: string | null): Promise<Complaint> {
+  const response = await apiClient.post<Complaint>(`/complaints/${id}/confirm`, {
+    comment: comment || null,
+  });
+  return response.data;
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/complaints/{complaint_id}/reject
+// ---------------------------------------------------------------------------
+
+export async function rejectRepair(id: string, comment: string): Promise<Complaint> {
+  const response = await apiClient.post<Complaint>(`/complaints/${id}/reject`, { comment });
+  return response.data;
+}

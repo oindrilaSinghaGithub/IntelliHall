@@ -6,11 +6,14 @@ import {
   ArrowLeft,
   Building2,
   Calendar,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardCheck,
+  FileImage,
   LogOut,
   MapPin,
   Clock,
   ShieldAlert,
-  FileImage,
   Wrench,
 } from "lucide-react";
 import axios from "axios";
@@ -24,6 +27,8 @@ import { useComplaint } from "@/hooks/use-complaints";
 import { ComplaintStatusBadge } from "@/components/shared/complaint-status-badge";
 import { ComplaintTimeline } from "@/components/shared/complaint-timeline";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
+import { NotificationBell } from "@/components/shared/notification-bell";
+import { StudentConfirmationCard } from "@/components/shared/student-confirmation-card";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -33,11 +38,10 @@ export default function ComplaintDetailPage({ params }: PageProps) {
   const resolvedParams = use(params);
   const id = resolvedParams.id;
   const { user, signOut } = useAuth();
-  
+
   const { data: complaint, isLoading, error } = useComplaint(id);
 
-  // Format dates
-  const formatDate = (dateString?: string) => {
+  const formatDate = (dateString?: string | null) => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleString("en-US", {
       month: "short",
@@ -53,7 +57,6 @@ export default function ComplaintDetailPage({ params }: PageProps) {
     return cat.charAt(0).toUpperCase() + cat.slice(1).replace("_", " ");
   };
 
-  // Determine error type
   const is404 = axios.isAxiosError(error) && error.response?.status === 404;
   const is403 = axios.isAxiosError(error) && error.response?.status === 403;
 
@@ -78,6 +81,7 @@ export default function ComplaintDetailPage({ params }: PageProps) {
               <Badge variant={user?.role === "hall_admin" ? "default" : "secondary"}>
                 {user?.role === "hall_admin" ? "Hall Admin" : "Student"}
               </Badge>
+              <NotificationBell />
               <Button
                 variant="ghost"
                 size="sm"
@@ -94,7 +98,6 @@ export default function ComplaintDetailPage({ params }: PageProps) {
         {/* Main content */}
         <main className="flex-1">
           <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-            {/* Back button */}
             <div className="mb-6">
               <Link
                 href="/dashboard/complaints"
@@ -115,8 +118,8 @@ export default function ComplaintDetailPage({ params }: PageProps) {
                   </CardTitle>
                   <p className="text-sm text-muted-foreground mt-2 max-w-sm">
                     {is404
-                      ? "The complaint ID you are trying to view does not exist. It may have been deleted or the link is broken."
-                      : "You do not have permission to view this complaint. It belongs to another student resident."}
+                      ? "This complaint does not exist or the link is broken."
+                      : "You do not have permission to view this complaint."}
                   </p>
                   <Button asChild className="mt-6">
                     <Link href="/dashboard/complaints">Return to My Complaints</Link>
@@ -137,7 +140,16 @@ export default function ComplaintDetailPage({ params }: PageProps) {
               <LoadingSkeleton variant="detail" />
             ) : complaint ? (
               <div className="space-y-6">
-                {/* Header section */}
+                {/* Confirmation card — prominent banner when awaiting student input */}
+                {complaint.status === "waiting_student_confirmation" && (
+                  <StudentConfirmationCard
+                    complaint={complaint}
+                    onConfirmed={() => {}}
+                    onRejected={() => {}}
+                  />
+                )}
+
+                {/* Header */}
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-border/40 pb-6">
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
@@ -156,7 +168,7 @@ export default function ComplaintDetailPage({ params }: PageProps) {
                         {complaint.priority} Priority
                       </span>
                       <span className="text-xs text-muted-foreground font-medium px-2 py-0.5">
-                        ID: <span className="font-mono">{complaint.id.slice(0, 8)}...</span>
+                        ID: <span className="font-mono">{complaint.id.slice(0, 8)}…</span>
                       </span>
                     </div>
                     <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
@@ -167,20 +179,19 @@ export default function ComplaintDetailPage({ params }: PageProps) {
                       <span>Raised on {formatDate(complaint.created_at)}</span>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 shrink-0">
                     <ComplaintStatusBadge status={complaint.status} />
                   </div>
                 </div>
 
-                {/* Main page layout */}
+                {/* Grid layout */}
                 <div className="grid gap-6 md:grid-cols-3">
-                  {/* Left content area */}
+                  {/* Left: details */}
                   <div className="space-y-6 md:col-span-2">
-                    {/* Description Card */}
+                    {/* Description */}
                     <Card className="border border-border/50 bg-card">
                       <CardHeader>
-                        <CardTitle className="text-base font-semibold">Description</CardTitle>
+                        <CardTitle className="text-sm font-semibold">Description</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
@@ -189,10 +200,10 @@ export default function ComplaintDetailPage({ params }: PageProps) {
                       </CardContent>
                     </Card>
 
-                    {/* Location Card */}
+                    {/* Location */}
                     <Card className="border border-border/50 bg-card">
                       <CardHeader>
-                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
                           <MapPin className="h-4 w-4 text-primary" />
                           Location Details
                         </CardTitle>
@@ -201,80 +212,147 @@ export default function ComplaintDetailPage({ params }: PageProps) {
                         {complaint.complaint_type === "personal" ? (
                           <div className="sm:col-span-2 p-3 rounded-lg bg-muted/30 border border-border/40">
                             <span className="text-xs text-muted-foreground block font-medium">Room Number</span>
-                            <span className="font-semibold text-foreground text-sm">
-                              {complaint.room_number || "Not specified"}
-                            </span>
+                            <span className="font-semibold text-foreground">{complaint.room_number || "Not specified"}</span>
                           </div>
                         ) : (
                           <>
-                            <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
-                              <span className="text-xs text-muted-foreground block font-medium">Block / Wing</span>
-                              <span className="font-semibold text-foreground text-sm">
-                                {complaint.block || "—"}
-                              </span>
-                            </div>
-                            <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
-                              <span className="text-xs text-muted-foreground block font-medium">Floor</span>
-                              <span className="font-semibold text-foreground text-sm">
-                                {complaint.floor || "—"}
-                              </span>
-                            </div>
-                            <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
-                              <span className="text-xs text-muted-foreground block font-medium">Common Area</span>
-                              <span className="font-semibold text-foreground text-sm">
-                                {complaint.common_area || "—"}
-                              </span>
-                            </div>
-                            <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
-                              <span className="text-xs text-muted-foreground block font-medium">QR Location ID</span>
-                              <span className="font-mono font-semibold text-foreground text-xs">
-                                {complaint.qr_location_id || "—"}
-                              </span>
-                            </div>
+                            {[
+                              { label: "Block / Wing", value: complaint.block },
+                              { label: "Floor", value: complaint.floor },
+                              { label: "Common Area", value: complaint.common_area },
+                              { label: "QR Location ID", value: complaint.qr_location_id },
+                            ].map(({ label, value }) => (
+                              <div key={label} className="p-3 rounded-lg bg-muted/30 border border-border/40">
+                                <span className="text-xs text-muted-foreground block font-medium">{label}</span>
+                                <span className="font-semibold text-foreground">{value || "—"}</span>
+                              </div>
+                            ))}
                           </>
                         )}
                       </CardContent>
                     </Card>
 
-                    {/* Assigned Worker info */}
-                    <Card className="border border-border/50 bg-card">
-                      <CardHeader>
-                        <CardTitle className="text-base font-semibold flex items-center gap-2">
-                          <Wrench className="h-4 w-4 text-primary" />
-                          Maintenance Assignment
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="grid gap-4 sm:grid-cols-2 text-sm">
-                        <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
-                          <span className="text-xs text-muted-foreground block font-medium">Assignee Name</span>
-                          <span className="font-semibold text-foreground text-sm">
-                            {complaint.current_assignee || "Unassigned"}
-                          </span>
-                        </div>
-                        <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
-                          <span className="text-xs text-muted-foreground block font-medium">Maintenance Worker Type</span>
-                          <span className="font-semibold text-foreground text-sm uppercase tracking-wide text-xs">
-                            {complaint.maintenance_type || "None"}
-                          </span>
-                        </div>
-                        <div className="sm:col-span-2 p-3 rounded-lg bg-muted/30 border border-border/40 flex items-start gap-2.5">
-                          <Clock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                          <div>
-                            <span className="text-xs text-muted-foreground block font-medium">Preferred Visit Time</span>
-                            <span className="font-semibold text-foreground text-xs">
-                              {complaint.preferred_visit_time
-                                ? formatDate(complaint.preferred_visit_time)
-                                : "No preference specified"}
+                    {/* Scheduled Assignment — shown when scheduled or beyond */}
+                    {complaint.assignment && (
+                      <Card className="border border-border/50 bg-card">
+                        <CardHeader>
+                          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                            <CalendarDays className="h-4 w-4 text-primary" />
+                            Scheduled Visit
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid gap-3 sm:grid-cols-2 text-sm">
+                          <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
+                            <span className="text-xs text-muted-foreground block font-medium">Worker</span>
+                            <span className="font-semibold text-foreground">{complaint.assignment.worker_name}</span>
+                          </div>
+                          <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
+                            <span className="text-xs text-muted-foreground block font-medium">Type</span>
+                            <span className="font-semibold text-foreground capitalize">{complaint.assignment.worker_type.replace("_", " ")}</span>
+                          </div>
+                          <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
+                            <span className="text-xs text-muted-foreground block font-medium">Visit Date</span>
+                            <span className="font-semibold text-foreground">
+                              {new Date(complaint.assignment.scheduled_date + "T00:00:00").toLocaleDateString("en-US", {
+                                month: "short", day: "numeric", year: "numeric",
+                              })}
                             </span>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                          {complaint.assignment.scheduled_time && (
+                            <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
+                              <span className="text-xs text-muted-foreground block font-medium">Time Slot</span>
+                              <span className="font-semibold text-foreground">{complaint.assignment.scheduled_time}</span>
+                            </div>
+                          )}
+                          {complaint.assignment.admin_remarks && (
+                            <div className="sm:col-span-2 p-3 rounded-lg bg-muted/30 border border-border/40">
+                              <span className="text-xs text-muted-foreground block font-medium">Admin Remarks</span>
+                              <span className="font-semibold text-foreground">{complaint.assignment.admin_remarks}</span>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )}
 
-                    {/* Images / Attachments */}
+                    {/* Completion Slip — shown once repair is marked done */}
+                    {complaint.completion_slip && (
+                      <Card className="border border-border/50 bg-card">
+                        <CardHeader>
+                          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                            <ClipboardCheck className="h-4 w-4 text-emerald-500" />
+                            Completion Slip
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid gap-3 sm:grid-cols-2 text-sm">
+                          <div className="sm:col-span-2 p-3 rounded-lg bg-muted/30 border border-border/40">
+                            <span className="text-xs text-muted-foreground block font-medium">Work Done</span>
+                            <span className="font-semibold text-foreground">{complaint.completion_slip.work_done}</span>
+                          </div>
+                          <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
+                            <span className="text-xs text-muted-foreground block font-medium">Completed On</span>
+                            <span className="font-semibold text-foreground">
+                              {new Date(complaint.completion_slip.completion_date).toLocaleDateString("en-US", {
+                                month: "short", day: "numeric", year: "numeric",
+                              })}
+                            </span>
+                          </div>
+                          <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
+                            <span className="text-xs text-muted-foreground block font-medium">Confirmation Status</span>
+                            <span className={`font-bold text-xs uppercase px-1.5 py-0.5 rounded ${
+                              complaint.completion_slip.student_confirmation_status === "confirmed"
+                                ? "bg-emerald-500/10 text-emerald-600"
+                                : complaint.completion_slip.student_confirmation_status === "rejected"
+                                ? "bg-red-500/10 text-red-600"
+                                : "bg-amber-500/10 text-amber-600"
+                            }`}>
+                              {complaint.completion_slip.student_confirmation_status}
+                            </span>
+                          </div>
+                          {complaint.completion_slip.student_comment && (
+                            <div className="sm:col-span-2 p-3 rounded-lg bg-muted/30 border border-border/40">
+                              <span className="text-xs text-muted-foreground block font-medium">Your Comment</span>
+                              <span className="font-semibold text-foreground">{complaint.completion_slip.student_comment}</span>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Legacy assignment card (fallback when no structured assignment) */}
+                    {!complaint.assignment && (
+                      <Card className="border border-border/50 bg-card">
+                        <CardHeader>
+                          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                            <Wrench className="h-4 w-4 text-primary" />
+                            Maintenance Assignment
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid gap-4 sm:grid-cols-2 text-sm">
+                          <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
+                            <span className="text-xs text-muted-foreground block font-medium">Assignee Name</span>
+                            <span className="font-semibold text-foreground">{complaint.current_assignee || "Unassigned"}</span>
+                          </div>
+                          <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
+                            <span className="text-xs text-muted-foreground block font-medium">Worker Type</span>
+                            <span className="font-semibold text-foreground uppercase text-xs">{complaint.maintenance_type || "None"}</span>
+                          </div>
+                          <div className="sm:col-span-2 p-3 rounded-lg bg-muted/30 border border-border/40 flex items-start gap-2.5">
+                            <Clock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                            <div>
+                              <span className="text-xs text-muted-foreground block font-medium">Preferred Visit Time</span>
+                              <span className="font-semibold text-foreground text-xs">
+                                {complaint.preferred_visit_time ? formatDate(complaint.preferred_visit_time) : "No preference specified"}
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Images */}
                     <Card className="border border-border/50 bg-card">
                       <CardHeader>
-                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
                           <FileImage className="h-4 w-4 text-primary" />
                           Attached Images
                         </CardTitle>
@@ -285,16 +363,9 @@ export default function ComplaintDetailPage({ params }: PageProps) {
                         ) : (
                           <div className="grid gap-4 grid-cols-2 sm:grid-cols-3">
                             {complaint.images.map((img) => (
-                              <div
-                                key={img.id}
-                                className="relative aspect-square rounded-lg border border-border overflow-hidden bg-muted group"
-                              >
+                              <div key={img.id} className="relative aspect-square rounded-lg border border-border overflow-hidden bg-muted group">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={img.image_url}
-                                  alt="Attachment"
-                                  className="object-cover w-full h-full transition-transform group-hover:scale-105"
-                                />
+                                <img src={img.image_url} alt="Attachment" className="object-cover w-full h-full transition-transform group-hover:scale-105" />
                               </div>
                             ))}
                           </div>
@@ -303,11 +374,11 @@ export default function ComplaintDetailPage({ params }: PageProps) {
                     </Card>
                   </div>
 
-                  {/* Right timeline area */}
+                  {/* Right: timeline */}
                   <div className="space-y-6">
                     <Card className="border border-border/50 bg-card h-fit">
                       <CardHeader>
-                        <CardTitle className="text-base font-semibold">Timeline & Remarks</CardTitle>
+                        <CardTitle className="text-sm font-semibold">Timeline & History</CardTitle>
                       </CardHeader>
                       <CardContent className="pt-2">
                         <ComplaintTimeline history={complaint.status_history} />

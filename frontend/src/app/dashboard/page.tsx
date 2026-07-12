@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, LogOut, ClipboardList, LayoutDashboard, Plus, ArrowRight } from "lucide-react";
+import { Building2, LogOut, ClipboardList, LayoutDashboard, Plus, ArrowRight, CheckCircle2, Clock, XCircle, User } from "lucide-react";
 import Link from "next/link";
 
 import { AuthGuard } from "@/components/shared/auth-guard";
@@ -13,6 +13,7 @@ import { useComplaints } from "@/hooks/use-complaints";
 import { ComplaintCard } from "@/components/shared/complaint-card";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { NotificationBell } from "@/components/shared/notification-bell";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -59,6 +60,7 @@ export default function DashboardPage() {
               <Badge variant={user?.role === "hall_admin" ? "default" : "secondary"}>
                 {user?.role === "hall_admin" ? "Hall Admin" : "Student"}
               </Badge>
+              <NotificationBell />
               <Button
                 variant="ghost"
                 size="sm"
@@ -106,6 +108,49 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* ── Verification status banner (students only) ─────────────── */}
+            {isStudent && (() => {
+              const status = user?.hall_verification_status;
+              if (status === "approved") return null;
+              if (status === "pending") return (
+                <div className="mb-8 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 dark:border-amber-800/40 dark:bg-amber-900/20">
+                  <Clock className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                      🟡 Hall Affiliation Pending Verification
+                    </p>
+                    <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-500">
+                      Your hall affiliation is awaiting verification by the Hall Office.
+                      Complaint submission will be enabled after approval.
+                    </p>
+                  </div>
+                </div>
+              );
+              if (status === "rejected") return (
+                <div className="mb-8 flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-5 py-4">
+                  <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-destructive">
+                      🔴 Hall Verification Rejected
+                    </p>
+                    {user?.hall_rejection_reason && (
+                      <p className="mt-0.5 text-xs text-destructive/80">
+                        Reason: {user.hall_rejection_reason}
+                      </p>
+                    )}
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      Please update your hall information from your{" "}
+                      <Link href="/profile" className="underline font-medium text-primary hover:text-primary/80">
+                        profile
+                      </Link>
+                      {" "}to re-submit for verification.
+                    </p>
+                  </div>
+                </div>
+              );
+              return null;
+            })()}
+
             {/* Student View vs Admin View */}
             {isStudent ? (
               <div className="grid gap-6 md:grid-cols-3">
@@ -123,12 +168,19 @@ export default function DashboardPage() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-3">
-                      <Button asChild className="w-full gap-1.5 shadow-xs">
-                        <Link href="/dashboard/complaints/new">
+                      {user?.hall_verification_status === "approved" || user?.role !== "student" ? (
+                        <Button asChild className="w-full gap-1.5 shadow-xs">
+                          <Link href="/dashboard/complaints/new">
+                            <Plus className="h-4 w-4" />
+                            Raise Complaint
+                          </Link>
+                        </Button>
+                      ) : (
+                        <Button className="w-full gap-1.5 shadow-xs" disabled title="Complaint submission is locked until your hall affiliation is verified.">
                           <Plus className="h-4 w-4" />
                           Raise Complaint
-                        </Link>
-                      </Button>
+                        </Button>
+                      )}
                       <Button asChild variant="outline" className="w-full gap-1.5">
                         <Link href="/dashboard/complaints">
                           View My Complaints

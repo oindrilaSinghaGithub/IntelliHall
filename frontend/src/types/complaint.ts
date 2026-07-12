@@ -20,6 +20,7 @@ export type ComplaintStatus =
   | "in_progress"
   | "completed"
   | "waiting_student_confirmation"
+  | "reopened"
   | "closed"
   | "visit_failed_room_locked";
 
@@ -27,10 +28,43 @@ export type MaintenanceType =
   | "electrician"
   | "plumber"
   | "carpenter"
+  | "mason"
+  | "cleaning_staff"
   | "civil"
   | "network"
   | "housekeeping"
   | "other";
+
+export type StudentConfirmationStatus = "pending" | "confirmed" | "rejected";
+
+export interface ComplaintAssignment {
+  id: string;
+  complaint_id: string;
+  worker_name: string;
+  worker_type: MaintenanceType;
+  scheduled_date: string;
+  scheduled_time: string | null;
+  admin_remarks: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompletionSlip {
+  id: string;
+  complaint_id: string;
+  hall_id: string;
+  room_number: string | null;
+  worker_name: string;
+  worker_type: MaintenanceType;
+  completion_date: string;
+  work_done: string;
+  admin_remarks: string | null;
+  student_comment: string | null;
+  student_confirmation_status: StudentConfirmationStatus;
+  student_confirmation_time: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface ComplaintImage {
   id: string;
@@ -72,6 +106,8 @@ export interface Complaint {
   images: ComplaintImage[];
   status_history: ComplaintStatusHistory[];
   student_name?: string | null;
+  assignment?: ComplaintAssignment | null;
+  completion_slip?: CompletionSlip | null;
 }
 
 export interface ComplaintSummary {
@@ -109,4 +145,17 @@ export interface ComplaintCreateRequest {
   common_area?: string | null;
   qr_location_id?: string | null;
   preferred_visit_time?: string | null;
+}
+
+export interface StatusUpdateRequest {
+  new_status: string;
+  remarks?: string | null;
+  // Assignment fields (required when new_status == "scheduled")
+  worker_name?: string | null;
+  worker_type?: MaintenanceType | null;
+  scheduled_date?: string | null;
+  scheduled_time?: string | null;
+  admin_remarks?: string | null;
+  // Completion field (required when new_status == "completed")
+  work_done?: string | null;
 }

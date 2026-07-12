@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Calendar, ChevronRight, AlertTriangle } from "lucide-react";
+import { AlertTriangle, Calendar, ChevronRight } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { ComplaintStatusBadge } from "./complaint-status-badge";
@@ -62,7 +62,15 @@ export function ComplaintCard({ complaint }: ComplaintCardProps) {
             </div>
 
             <div className="flex items-center justify-between sm:flex-col sm:items-end sm:justify-center gap-3 border-t border-border/40 pt-3 sm:border-0 sm:pt-0 shrink-0">
-              <ComplaintStatusBadge status={complaint.status} />
+              <div className="flex flex-col items-end gap-1.5">
+                <ComplaintStatusBadge status={complaint.status} />
+                {complaint.status === "waiting_student_confirmation" && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                    <AlertTriangle className="h-2.5 w-2.5" />
+                    Confirm Required
+                  </span>
+                )}
+              </div>
               <div className="hidden sm:flex items-center text-xs font-medium text-muted-foreground group-hover:text-primary transition-colors gap-1">
                 View details
                 <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />

@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   BarChart3,
   ListTodo,
+  ShieldCheck,
+  CalendarDays,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -18,8 +20,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
 import { useHallComplaints } from "@/hooks/use-complaints";
+import { usePendingVerifications } from "@/hooks/use-verification";
 import { ComplaintStatusBadge } from "@/components/shared/complaint-status-badge";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
+import { NotificationBell } from "@/components/shared/notification-bell";
 
 export default function AdminDashboardPage() {
   const { user, signOut } = useAuth();
@@ -45,6 +49,10 @@ export default function AdminDashboardPage() {
 
   const recentComplaints = complaints.slice(0, 3);
 
+  // Pending verification count
+  const { data: verificationData } = usePendingVerifications({ page: 1, page_size: 1 });
+  const pendingVerificationsCount = verificationData?.total ?? 0;
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Top nav */}
@@ -63,6 +71,7 @@ export default function AdminDashboardPage() {
               <p className="text-xs text-muted-foreground">{user?.email}</p>
             </div>
             <Badge variant="default">Hall Admin</Badge>
+            <NotificationBell />
             <Button
               variant="ghost"
               size="sm"
@@ -93,11 +102,28 @@ export default function AdminDashboardPage() {
                 <p className="mt-1.5 text-sm text-muted-foreground">
                   You are logged in as a Hall Administrator. You can monitor hostel maintenance requests, assign technicians, and coordinate workflows.
                 </p>
-                <div className="mt-4 flex gap-3">
+                <div className="mt-4 flex flex-wrap gap-3">
                   <Link href="/dashboard/admin/complaints">
                     <Button size="sm" className="gap-1.5 text-xs font-semibold">
                       <ClipboardList className="h-3.5 w-3.5" />
                       View Complaint Queue
+                    </Button>
+                  </Link>
+                  <Link href="/dashboard/admin/verifications">
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs font-semibold">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Hall Verifications
+                      {pendingVerificationsCount > 0 && (
+                        <span className="ml-1 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
+                          {pendingVerificationsCount}
+                        </span>
+                      )}
+                    </Button>
+                  </Link>
+                  <Link href="/dashboard/admin/schedule">
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs font-semibold">
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      Work Schedule
                     </Button>
                   </Link>
                 </div>
@@ -123,7 +149,7 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* Statistics Grid */}
-          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-6">
             {[
               {
                 title: "Total Complaints",
@@ -131,6 +157,7 @@ export default function AdminDashboardPage() {
                 desc: "All registered complaints",
                 icon: ClipboardList,
                 color: "text-blue-500 bg-blue-500/10",
+                href: "/dashboard/admin/complaints",
               },
               {
                 title: "Pending Complaints",
@@ -138,6 +165,7 @@ export default function AdminDashboardPage() {
                 desc: "Awaiting verification",
                 icon: Clock,
                 color: "text-amber-500 bg-amber-500/10",
+                href: "/dashboard/admin/complaints",
               },
               {
                 title: "In Progress",
@@ -145,6 +173,7 @@ export default function AdminDashboardPage() {
                 desc: "Currently being fixed",
                 icon: Wrench,
                 color: "text-purple-500 bg-purple-500/10",
+                href: null,
               },
               {
                 title: "Completed",
@@ -152,22 +181,58 @@ export default function AdminDashboardPage() {
                 desc: "Resolved issues",
                 icon: CheckCircle2,
                 color: "text-emerald-500 bg-emerald-500/10",
+                href: null,
+              },
+              {
+                title: "Pending Verifications",
+                value: String(pendingVerificationsCount),
+                desc: "Awaiting your approval",
+                icon: ShieldCheck,
+                color: pendingVerificationsCount > 0 ? "text-rose-500 bg-rose-500/10" : "text-emerald-500 bg-emerald-500/10",
+                href: "/dashboard/admin/verifications",
+              },
+              {
+                title: "Work Schedule",
+                value: "View",
+                desc: "Scheduled & in-progress visits",
+                icon: CalendarDays,
+                color: "text-indigo-500 bg-indigo-500/10",
+                href: "/dashboard/admin/schedule",
               },
             ].map((stat, idx) => (
-              <Card key={idx} className="border border-border/50 bg-card">
-                <CardContent className="p-6 flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-muted-foreground tracking-wider uppercase">
-                      {stat.title}
-                    </p>
-                    <p className="text-2xl font-bold tracking-tight">{stat.value}</p>
-                    <p className="text-[10px] text-muted-foreground">{stat.desc}</p>
-                  </div>
-                  <div className={`p-2.5 rounded-lg ${stat.color}`}>
-                    <stat.icon className="h-5 w-5" />
-                  </div>
-                </CardContent>
-              </Card>
+              stat.href ? (
+                <Link key={idx} href={stat.href} className="block">
+                  <Card className="border border-border/50 bg-card transition-all hover:border-primary/30 hover:shadow-md cursor-pointer">
+                    <CardContent className="p-6 flex items-start justify-between">
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold text-muted-foreground tracking-wider uppercase">
+                          {stat.title}
+                        </p>
+                        <p className="text-2xl font-bold tracking-tight">{stat.value}</p>
+                        <p className="text-[10px] text-muted-foreground">{stat.desc}</p>
+                      </div>
+                      <div className={`p-2.5 rounded-lg ${stat.color}`}>
+                        <stat.icon className="h-5 w-5" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ) : (
+                <Card key={idx} className="border border-border/50 bg-card">
+                  <CardContent className="p-6 flex items-start justify-between">
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold text-muted-foreground tracking-wider uppercase">
+                        {stat.title}
+                      </p>
+                      <p className="text-2xl font-bold tracking-tight">{stat.value}</p>
+                      <p className="text-[10px] text-muted-foreground">{stat.desc}</p>
+                    </div>
+                    <div className={`p-2.5 rounded-lg ${stat.color}`}>
+                      <stat.icon className="h-5 w-5" />
+                    </div>
+                  </CardContent>
+                </Card>
+              )
             ))}
           </div>
 

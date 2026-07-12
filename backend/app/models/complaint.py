@@ -42,6 +42,8 @@ from app.models.enums import (
 )
 
 if TYPE_CHECKING:
+    from app.models.assignment import ComplaintAssignment
+    from app.models.completion_slip import CompletionSlip
     from app.models.hall import Hall
     from app.models.user import User
 
@@ -239,6 +241,24 @@ class Complaint(TimestampedBase):
         back_populates="complaint",
         cascade="all, delete-orphan",
         order_by="ComplaintStatusHistory.timestamp",
+        lazy="selectin",
+    )
+
+    # One-to-one: worker assignment (set when complaint is scheduled)
+    assignment: Mapped["ComplaintAssignment | None"] = relationship(
+        "ComplaintAssignment",
+        back_populates="complaint",
+        cascade="all, delete-orphan",
+        uselist=False,
+        lazy="selectin",
+    )
+
+    # One-to-one: completion slip (set when complaint is marked complete)
+    completion_slip: Mapped["CompletionSlip | None"] = relationship(
+        "CompletionSlip",
+        back_populates="complaint",
+        cascade="all, delete-orphan",
+        uselist=False,
         lazy="selectin",
     )
 

@@ -39,6 +39,8 @@ export const registerSchema = z
     confirmPassword: z.string().min(1, "Please confirm your password"),
     role: z.union([z.literal("student"), z.literal("hall_admin")]),
     hall_id: z.string().min(1, "Hall of Residence is required"),
+    roll_number: z.string().max(50).optional().or(z.literal("")),
+    room_number: z.string().max(20).optional().or(z.literal("")),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -46,6 +48,17 @@ export const registerSchema = z
   });
 
 export type RegisterFormValues = z.infer<typeof registerSchema>;
+
+// ---------------------------------------------------------------------------
+// Update Hall (student profile)
+// ---------------------------------------------------------------------------
+
+export const updateHallSchema = z.object({
+  hall_id: z.string().min(1, "Please select a hall"),
+  room_number: z.string().max(20).optional().or(z.literal("")),
+});
+
+export type UpdateHallFormValues = z.infer<typeof updateHallSchema>;
 
 // ---------------------------------------------------------------------------
 // Complaint
