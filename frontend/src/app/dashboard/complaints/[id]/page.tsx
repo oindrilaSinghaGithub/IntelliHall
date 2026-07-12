@@ -23,9 +23,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
-import { useComplaint } from "@/hooks/use-complaints";
+import { useComplaint, useDeleteImage } from "@/hooks/use-complaints";
 import { ComplaintStatusBadge } from "@/components/shared/complaint-status-badge";
 import { ComplaintTimeline } from "@/components/shared/complaint-timeline";
+import { ImageGallery } from "@/components/shared/image-gallery";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { StudentConfirmationCard } from "@/components/shared/student-confirmation-card";
@@ -40,6 +41,7 @@ export default function ComplaintDetailPage({ params }: PageProps) {
   const { user, signOut } = useAuth();
 
   const { data: complaint, isLoading, error } = useComplaint(id);
+  const deleteImageMutation = useDeleteImage(id);
 
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return "N/A";
@@ -358,18 +360,14 @@ export default function ComplaintDetailPage({ params }: PageProps) {
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        {!complaint.images || complaint.images.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">No images attached to this complaint.</p>
-                        ) : (
-                          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3">
-                            {complaint.images.map((img) => (
-                              <div key={img.id} className="relative aspect-square rounded-lg border border-border overflow-hidden bg-muted group">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={img.image_url} alt="Attachment" className="object-cover w-full h-full transition-transform group-hover:scale-105" />
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        <ImageGallery
+                          images={complaint.images}
+                          canDelete={
+                            user?.id === complaint.created_by ||
+                            (user?.role === "hall_admin" && user?.hall_id === complaint.hall_id)
+                          }
+                          onDelete={(imageId) => deleteImageMutation.mutate(imageId)}
+                        />
                       </CardContent>
                     </Card>
                   </div>

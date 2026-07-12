@@ -2,10 +2,11 @@
 IntelliHall — FastAPI Application Entry Point
 """
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-# from fastapi.staticfiles import StaticFiles  # Uncomment to serve uploads
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -39,13 +40,16 @@ app.add_middleware(
 )
 
 # ---------------------------------------------------------------------------
-# Static files — uncomment when ready to serve uploaded complaint images
+# Static files — serve uploaded complaint images
 # ---------------------------------------------------------------------------
-# app.mount(
-#     "/uploads",
-#     StaticFiles(directory=settings.UPLOAD_DIR),
-#     name="uploads",
-# )
+Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+(Path(settings.UPLOAD_DIR) / "complaints").mkdir(parents=True, exist_ok=True)
+
+app.mount(
+    "/uploads",
+    StaticFiles(directory=settings.UPLOAD_DIR),
+    name="uploads",
+)
 
 # ---------------------------------------------------------------------------
 # Routers

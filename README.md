@@ -99,6 +99,81 @@ Closed    Reopened ──► auto-transition ──► Verified
 
 ---
 
+## 📷 Image Upload
+
+Students and Hall Admins can attach photographic evidence to complaints, making it easier to communicate and verify maintenance issues.
+
+### Overview
+
+The Image Upload module allows users to attach up to **5 images** per complaint. Images are uploaded during complaint creation or can be added later via the complaint detail page. The system validates file types and sizes on both the client and server to ensure only valid images are stored.
+
+### Supported Formats
+
+| Format | MIME Type |
+|---|---|
+| JPEG | `image/jpeg` |
+| PNG | `image/png` |
+| WebP | `image/webp` |
+
+### Upload Limits
+
+| Constraint | Limit |
+|---|---|
+| Maximum file size | 5 MB per image |
+| Maximum images per complaint | 5 |
+| Allowed extensions | `.jpg`, `.jpeg`, `.png`, `.webp` |
+
+### Storage
+
+Uploaded images are stored on the server filesystem under `backend/uploads/complaints/`. Each file is renamed to a UUID to prevent filename collisions and path traversal attacks. The original extension is preserved for proper MIME type serving.
+
+```
+backend/uploads/complaints/
+  a3f1c2d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d.jpg
+  b4e2d3c5-6f7a-8b9c-0d1e-2f3a4b5c6d7e.png
+  ...
+```
+
+Image metadata (URL, upload timestamp, parent complaint) is stored in the `complaint_images` database table.
+
+### How It Works
+
+**For students raising a complaint:**
+
+1. Fill in the complaint form as usual.
+2. In the "Attach Images" section, drag and drop images onto the upload zone — or click to browse files.
+3. Thumbnail previews appear immediately. Click the ✕ button on any thumbnail to remove it before submitting.
+4. Client-side validation prevents invalid files (wrong type, too large, too many) with clear error messages.
+5. Submit the form. The complaint is created first, then images are uploaded automatically.
+6. A success toast confirms the upload. You are redirected to the complaint detail page where images appear in the gallery.
+
+**For viewing complaint images:**
+
+1. Open any complaint detail page.
+2. Attached images display in a responsive grid (2 columns on mobile, 3 on desktop).
+3. Click any image to open a full-size lightbox preview. Close with the ✕ button, the Escape key, or by clicking outside the image.
+
+**For deleting images:**
+
+1. The complaint owner or the hall admin for that complaint sees a delete button (✕) on hover over each image.
+2. Clicking delete triggers a confirmation dialog.
+3. On confirmation, the image file is removed from disk and the database record is deleted.
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/v1/complaints/{complaint_id}/images` | Upload one or more images (multipart/form-data) |
+| `DELETE` | `/api/v1/complaints/images/{image_id}` | Delete a single image (file + database record) |
+| Static | `/uploads/complaints/{filename}` | Serves uploaded image files directly |
+
+### Authorization
+
+- **Students** may upload to and delete from their own complaints only.
+- **Hall Admins** may upload to and delete from any complaint belonging to their hall.
+
+---
+
 ## 🛠️ Tech Stack
 
 ### Frontend
@@ -195,6 +270,7 @@ IntelliHall/
 │       │   └── verification.py
 │       ├── repositories/           # Pure DB access layer (no business logic)
 │       │   ├── complaint_repository.py
+│       │   ├── image_repository.py
 │       │   ├── assignment_repository.py
 │       │   ├── completion_slip_repository.py
 │       │   ├── notification_repository.py
@@ -203,6 +279,7 @@ IntelliHall/
 │       ├── services/               # Business logic layer
 │       │   ├── auth_service.py
 │       │   ├── complaint_service.py
+│       │   ├── image_service.py     # Image upload, validation & deletion
 │       │   ├── hall_service.py
 │       │   ├── notification_service.py
 │       │   ├── schedule_service.py  # Schedule listing + ReportLab PDF export
@@ -432,7 +509,7 @@ These features are **not yet implemented** and are planned for future milestones
 | 📧 Email / SMS Notifications | Push alerts via email and SMS in addition to in-app notifications |
 | 📊 Analytics Dashboard | Charts and metrics for complaint volume, resolution time, worker performance |
 | 🔧 Worker Mobile Interface | Lightweight mobile view for maintenance workers to update job status in the field |
-| 📷 Image Upload | Upload complaint images directly to cloud storage |
+| 📷 Image Upload | ✅ **Implemented** — see [Image Upload](#-image-upload) section above |
 | 🌐 Multi-language Support | Hindi and regional language interface options |
 
 ---
@@ -441,9 +518,9 @@ These features are **not yet implemented** and are planned for future milestones
 
 | Name | GitHub | Role |
 |---|---|---|
-| Oindrila Singha | [@oindrilaSinghaGithub](https://github.com/oindrilaSinghaGithub) | Full-stack lead |
+| Oindrila Singha | [@oindrilaSinghaGithub](https://github.com/oindrilaSinghaGithub) | Full-stack Developer |
+| Kavya Rai | [@Vya234](https://github.com/Vya234) | Full-stack Developer |
 | Khushi Kumari | [@Khushi-Kumari030](https://github.com/Khushi-Kumari030) | Frontend |
-| Kavya Rai | [@Vya234](https://github.com/Vya234) | Frontend |
 
 ---
 

@@ -14,6 +14,7 @@ export function ComplaintStatusBadge({ status }: ComplaintStatusBadgeProps) {
     in_progress: "In Progress",
     completed: "Completed",
     waiting_student_confirmation: "Awaiting Confirmation",
+    reopened: "Reopened",
     closed: "Closed",
     visit_failed_room_locked: "Visit Failed (Locked)",
   };
@@ -27,6 +28,7 @@ export function ComplaintStatusBadge({ status }: ComplaintStatusBadgeProps) {
     in_progress: "bg-amber-500/10 text-amber-500 hover:bg-amber-500/15 border-amber-500/20",
     completed: "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/15 border-emerald-500/20",
     waiting_student_confirmation: "bg-orange-500/10 text-orange-500 hover:bg-orange-500/15 border-orange-500/20",
+    reopened: "bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/15 border-yellow-500/20",
     closed: "bg-slate-500/10 text-slate-400 hover:bg-slate-500/15 border-slate-500/20",
     visit_failed_room_locked: "bg-rose-500/10 text-rose-500 hover:bg-rose-500/15 border-rose-500/20",
   };

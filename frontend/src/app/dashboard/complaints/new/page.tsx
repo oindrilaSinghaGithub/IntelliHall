@@ -1,23 +1,29 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Building2, ClipboardList, LogOut } from "lucide-react";
+import { toast } from "sonner";
 
 import { AuthGuard } from "@/components/shared/auth-guard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
-import { useCreateComplaint } from "@/hooks/use-complaints";
 import { ComplaintForm } from "@/components/shared/complaint-form";
+import { createComplaint, uploadComplaintImages } from "@/services/complaint";
+import { extractApiError } from "@/services/api-client";
 import type { ComplaintFormValues } from "@/lib/schemas";
 
 export default function RaiseComplaintPage() {
   const { user, signOut } = useAuth();
-  const createComplaintMutation = useCreateComplaint();
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleFormSubmit = (values: ComplaintFormValues) => {
+  const handleFormSubmit = async (values: ComplaintFormValues, imageFiles: File[]) => {
+    setIsSubmitting(true);
+
     // Standardize request payload matching FastAPI constraints
-    // Clean empty values to null so the backend handles optional keys correctly.
     const payload = {
       title: values.title,
       description: values.description,
@@ -32,7 +38,30 @@ export default function RaiseComplaintPage() {
       preferred_visit_time: values.preferred_visit_time || null,
     };
 
-    createComplaintMutation.mutate(payload);
+    try {
+      // Step 1: Create complaint
+      const newComplaint = await createComplaint(payload);
+
+      // Step 2: Upload images if any
+      if (imageFiles.length > 0) {
+        try {
+          await uploadComplaintImages(newComplaint.id, imageFiles);
+          toast.success("Complaint raised with images!");
+        } catch (uploadError) {
+          // Complaint was created but images failed — still redirect
+          toast.error(extractApiError(uploadError) || "Complaint created but image upload failed.");
+        }
+      } else {
+        toast.success("Complaint raised successfully!");
+      }
+
+      // Redirect to detail page
+      router.push(`/dashboard/complaints/${newComplaint.id}`);
+    } catch (error) {
+      toast.error(extractApiError(error) || "Failed to raise complaint.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -139,7 +168,7 @@ export default function RaiseComplaintPage() {
               /* Form */
               <ComplaintForm
                 onSubmit={handleFormSubmit}
-                isLoading={createComplaintMutation.isPending}
+                isLoading={isSubmitting}
               />
             )}
           </div>

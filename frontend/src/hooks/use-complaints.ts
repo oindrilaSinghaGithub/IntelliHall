@@ -5,12 +5,14 @@ import { toast } from "sonner";
 import {
   confirmRepair,
   createComplaint,
+  deleteComplaintImage,
   getComplaint,
   getMyComplaints,
   getHallComplaints,
   rejectRepair,
   updateComplaintFields,
   updateComplaintStatus,
+  uploadComplaintImages,
 } from "@/services/complaint";
 import type { ComplaintCreateRequest, StatusUpdateRequest } from "@/types/complaint";
 import { extractApiError } from "@/services/api-client";
@@ -160,6 +162,42 @@ export function useRejectRepair(id: string) {
     },
     onError: (error) => {
       toast.error(extractApiError(error) || "Failed to report issue.");
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Hook: upload images to a complaint
+// ---------------------------------------------------------------------------
+
+export function useUploadImages(complaintId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (files: File[]) => uploadComplaintImages(complaintId, files),
+    onSuccess: () => {
+      toast.success("Images uploaded successfully!");
+      queryClient.invalidateQueries({ queryKey: COMPLAINT_KEYS.detail(complaintId) });
+    },
+    onError: (error) => {
+      toast.error(extractApiError(error) || "Failed to upload images.");
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Hook: delete a complaint image
+// ---------------------------------------------------------------------------
+
+export function useDeleteImage(complaintId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (imageId: string) => deleteComplaintImage(imageId),
+    onSuccess: () => {
+      toast.success("Image deleted.");
+      queryClient.invalidateQueries({ queryKey: COMPLAINT_KEYS.detail(complaintId) });
+    },
+    onError: (error) => {
+      toast.error(extractApiError(error) || "Failed to delete image.");
     },
   });
 }

@@ -38,7 +38,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, File, Path, UploadFile, status
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,6 +51,7 @@ from app.models.user import User
 from app.schemas.complaint import (
     ComplaintCreate,
     ComplaintFilters,
+    ComplaintImageRead,
     ComplaintRead,
     ComplaintSummary,
     ComplaintUpdate,
@@ -59,6 +60,7 @@ from app.schemas.complaint import (
 )
 from app.schemas.completion_slip import CompletionSlipRead
 from app.services.complaint_service import ComplaintService
+from app.services.image_service import ImageService
 
 router = APIRouter()
 
@@ -395,3 +397,74 @@ async def reject_repair(
         session, complaint_id, current_user, payload.comment
     )
     return ComplaintRead.model_validate(complaint)
+
+
+# ---------------------------------------------------------------------------
+# POST /{complaint_id}/images  — Upload images to a complaint
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/{complaint_id}/images",
+    response_model=list[ComplaintImageRead],
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload images to a complaint",
+    description=(
+        "Upload one or more image files to a complaint.\n\n"
+        "**Requires:** authenticated user who is the complaint owner "
+        "or a HALL_ADMIN for the complaint's hall.\n\n"
+        "**Constraints:**\n"
+        "- Allowed file types: JPG, JPEG, PNG, WebP\n"
+        "- Max file size: 5 MB per file\n"
+        "- Max 5 images total per complaint"
+    ),
+    responses={
+        201: {"description": "Images uploaded successfully."},
+        400: {"description": "Invalid file type, size exceeded, or image count exceeded."},
+        401: {"description": "Missing or invalid Bearer token."},
+        403: {"description": "Not authorized to upload images to this complaint."},
+        404: {"description": "Complaint not found."},
+    },
+    tags=["complaints"],
+)
+async def upload_images(
+    complaint_id: Annotated[str, Path(description="UUID of the complaint.")],
+    files: list[UploadFile] = File(..., description="Image files to upload."),
+    session: DBSession = None,
+    current_user: AuthUser = None,
+) -> list[ComplaintImageRead]:
+    """Upload one or more images to a complaint."""
+    images = await ImageService.upload_images(session, complaint_id, files, current_user)
+    return [ComplaintImageRead.model_validate(img) for img in images]
+
+
+# ---------------------------------------------------------------------------
+# DELETE /images/{image_id}  — Delete a complaint image
+# ---------------------------------------------------------------------------
+
+@router.delete(
+    "/images/{image_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    response_model=None,
+    summary="Delete a complaint image",
+    description=(
+        "Delete a single image from a complaint.\n\n"
+        "**Requires:** authenticated user who is the complaint owner "
+        "or a HALL_ADMIN for the complaint's hall.\n\n"
+        "The physical file is removed from disk and the database record is deleted."
+    ),
+    responses={
+        204: {"description": "Image deleted successfully."},
+        401: {"description": "Missing or invalid Bearer token."},
+        403: {"description": "Not authorized to delete this image."},
+        404: {"description": "Image not found."},
+    },
+    tags=["complaints"],
+)
+async def delete_image(
+    image_id: Annotated[str, Path(description="UUID of the image.")],
+    session: DBSession = None,
+    current_user: AuthUser = None,
+) -> None:
+    """Delete a complaint image."""
+    await ImageService.delete_image(session, image_id, current_user)

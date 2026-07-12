@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
@@ -6,14 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { ImageUploader } from "@/components/shared/image-uploader";
 import { complaintSchema, type ComplaintFormValues } from "@/lib/schemas";
 
 interface ComplaintFormProps {
-  onSubmit: (data: ComplaintFormValues) => void;
+  onSubmit: (data: ComplaintFormValues, imageFiles: File[]) => void;
   isLoading: boolean;
 }
 
 export function ComplaintForm({ onSubmit, isLoading }: ComplaintFormProps) {
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const {
     register,
     handleSubmit,
@@ -39,7 +42,7 @@ export function ComplaintForm({ onSubmit, isLoading }: ComplaintFormProps) {
   const complaintType = watch("complaint_type");
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit((data) => onSubmit(data, imageFiles))} className="space-y-6">
       <Card className="border border-border/50">
         <CardContent className="p-6 space-y-6">
           {/* Title */}
@@ -202,6 +205,18 @@ export function ComplaintForm({ onSubmit, isLoading }: ComplaintFormProps) {
             <p className="text-xs text-muted-foreground">
               Select a preferred time window when you will be available.
             </p>
+          </div>
+
+          {/* Image Upload */}
+          <div className="space-y-2">
+            <Label>Attach Images (Optional)</Label>
+            <ImageUploader
+              files={imageFiles}
+              onChange={setImageFiles}
+              maxFiles={5}
+              maxSizeMB={5}
+              disabled={isLoading}
+            />
           </div>
         </CardContent>
       </Card>
