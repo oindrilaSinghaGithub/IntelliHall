@@ -26,6 +26,8 @@ class Settings(BaseSettings):
 
     # File storage
     UPLOAD_DIR: str = "uploads"
+    MAX_UPLOAD_SIZE_BYTES: int = 5 * 1024 * 1024       # 5 MB per image
+    MAX_IMAGES_PER_COMPLAINT: int = 5
 
     # AI / ML
     MODEL_DIR: str = "app/ai/models"

@@ -13,6 +13,8 @@ ComplaintRepository.list(session, ...)                 -> tuple[list[Complaint],
 ComplaintRepository.update(session, complaint, data)   -> Complaint
 ComplaintRepository.delete(session, complaint)         -> None
 ComplaintRepository.add_status_history(session, ...)   -> ComplaintStatusHistory
+ComplaintRepository.count_images(session, complaint_id) -> int
+ComplaintRepository.add_images(session, complaint_id, image_urls) -> list[ComplaintImage]
 """
 
 from __future__ import annotations
@@ -23,7 +25,7 @@ from typing import Literal
 from sqlalchemy import asc, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.complaint import Complaint, ComplaintStatusHistory
+from app.models.complaint import Complaint, ComplaintImage, ComplaintStatusHistory
 from app.models.enums import (
     ComplaintCategory,
     ComplaintPriority,
@@ -207,6 +209,45 @@ class ComplaintRepository:
         """Hard-delete the complaint and all its cascaded children."""
         await session.delete(complaint)
         await session.flush()
+
+    # ------------------------------------------------------------------
+    # Images
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    async def count_images(
+        session: AsyncSession,
+        complaint_id: str,
+    ) -> int:
+        """Return the number of images attached to a complaint."""
+        result = await session.execute(
+            select(func.count())
+            .select_from(ComplaintImage)
+            .where(ComplaintImage.complaint_id == complaint_id)
+        )
+        return result.scalar_one()
+
+    @staticmethod
+    async def add_images(
+        session: AsyncSession,
+        complaint_id: str,
+        image_urls: list[str],
+    ) -> list[ComplaintImage]:
+        """Persist one ComplaintImage row per URL and return the new records."""
+        now = datetime.now(timezone.utc)
+        images: list[ComplaintImage] = []
+        for url in image_urls:
+            image = ComplaintImage(
+                complaint_id=complaint_id,
+                image_url=url,
+                uploaded_at=now,
+            )
+            session.add(image)
+            images.append(image)
+        await session.flush()
+        for image in images:
+            await session.refresh(image)
+        return images
 
     # ------------------------------------------------------------------
     # Status History

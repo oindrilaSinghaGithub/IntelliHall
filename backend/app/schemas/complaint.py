@@ -177,6 +177,15 @@ class ComplaintImageRead(BaseModel):
     uploaded_at: datetime = Field(..., description="UTC timestamp of upload.")
 
 
+class ComplaintImagesUploadResponse(BaseModel):
+    """Response returned after uploading one or more complaint images."""
+
+    images: list[ComplaintImageRead] = Field(
+        ...,
+        description="Newly uploaded image records.",
+    )
+
+
 # ---------------------------------------------------------------------------
 # ComplaintStatusHistory
 # ---------------------------------------------------------------------------

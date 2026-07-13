@@ -8,8 +8,8 @@ HALL_ADMIN: view/update/delete complaints from their hall; update status.
 
 Endpoints
 ---------
-POST   /api/v1/complaints/
-    Create a complaint [authenticated student]                           201
+POST   /api/v1/complaints/{complaint_id}/images
+    Upload complaint images [complaint owner, submitted status only]      201
 
 GET    /api/v1/complaints/
     List the calling student's own complaints (paginated)               200
@@ -38,7 +38,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, File, Path, UploadFile, status
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,6 +51,8 @@ from app.models.user import User
 from app.schemas.complaint import (
     ComplaintCreate,
     ComplaintFilters,
+    ComplaintImageRead,
+    ComplaintImagesUploadResponse,
     ComplaintRead,
     ComplaintSummary,
     ComplaintUpdate,
@@ -107,6 +109,53 @@ async def create_complaint(
     """Create and return a new complaint (authenticated users only)."""
     complaint = await ComplaintService.create(session, payload, current_user)
     return ComplaintRead.model_validate(complaint)
+
+
+# ---------------------------------------------------------------------------
+# POST /{complaint_id}/images  — Student: upload complaint images
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/{complaint_id}/images",
+    response_model=ComplaintImagesUploadResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload complaint images",
+    description=(
+        "Attach one or more images to a complaint you created.\n\n"
+        "**Requires:** the complaint creator's Bearer token.\n\n"
+        "**Rules:**\n"
+        "- Complaint must be in `submitted` status.\n"
+        "- Maximum 5 images per complaint.\n"
+        "- Maximum 5 MB per file.\n"
+        "- Allowed types: JPEG, PNG, WebP.\n\n"
+        "Send as `multipart/form-data` with one or more `files` fields."
+    ),
+    responses={
+        201: {"description": "Images uploaded successfully."},
+        400: {"description": "Invalid status or image count exceeded."},
+        401: {"description": "Missing or invalid Bearer token."},
+        403: {"description": "Not the complaint owner."},
+        404: {"description": "Complaint not found."},
+        422: {"description": "Invalid file type or size."},
+    },
+    tags=["complaints"],
+)
+async def upload_complaint_images(
+    complaint_id: Annotated[str, Path(description="UUID of the complaint.")],
+    session: DBSession,
+    current_user: AuthUser,
+    files: Annotated[list[UploadFile], File(description="Image files to attach.")],
+) -> ComplaintImagesUploadResponse:
+    """Upload images for a complaint (owner only, submitted status only)."""
+    images = await ComplaintService.upload_images(
+        session,
+        complaint_id,
+        files,
+        current_user,
+    )
+    return ComplaintImagesUploadResponse(
+        images=[ComplaintImageRead.model_validate(img) for img in images],
+    )
 
 
 # ---------------------------------------------------------------------------

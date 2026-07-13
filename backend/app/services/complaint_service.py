@@ -13,6 +13,7 @@ STUDENT
   - list_for_student()        : paginated list scoped to created_by
   - confirm_repair()          : own complaint, waiting_student_confirmation only
   - reject_repair()           : own complaint, waiting_student_confirmation only
+  - upload_images()           : own complaint, submitted status only
 
 HALL_ADMIN
   - get_for_admin()           : any complaint in their hall
@@ -28,10 +29,11 @@ import math
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models.complaint import Complaint
 from app.models.enums import ComplaintStatus, ComplaintType, StudentConfirmationStatus, UserRole
 from app.models.user import User
@@ -49,8 +51,10 @@ from app.schemas.complaint import (
 )
 from app.schemas.completion_slip import CompletionSlipRead
 from app.services.notification_service import NotificationService
+from app.utils.file_utils import delete_complaint_image, read_and_validate_image, save_complaint_image
 
 if TYPE_CHECKING:
+    from app.models.complaint import ComplaintImage
     from app.models.completion_slip import CompletionSlip
 
 
@@ -164,6 +168,72 @@ class ComplaintService:
             user_id=current_user.id,
             hall_id=current_user.hall_id,
         )
+
+    # ------------------------------------------------------------------
+    # Upload images (Student — own complaint, submitted status only)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    async def upload_images(
+        session: AsyncSession,
+        complaint_id: str,
+        files: list[UploadFile],
+        current_user: "User",
+    ) -> list["ComplaintImage"]:
+        """
+        Attach one or more images to a complaint owned by the current user.
+
+        Images may only be uploaded while the complaint is still ``submitted``.
+        """
+        if not files:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="At least one image file is required.",
+            )
+
+        complaint = await ComplaintService.get_or_404(session, complaint_id)
+
+        if complaint.created_by != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to upload images for this complaint.",
+            )
+
+        if complaint.status != ComplaintStatus.SUBMITTED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Images can only be uploaded while the complaint is in "
+                    "'submitted' status."
+                ),
+            )
+
+        existing_count = await ComplaintRepository.count_images(session, complaint_id)
+        if existing_count + len(files) > settings.MAX_IMAGES_PER_COMPLAINT:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"A complaint may have at most {settings.MAX_IMAGES_PER_COMPLAINT} "
+                    f"images. This complaint already has {existing_count}."
+                ),
+            )
+
+        saved_urls: list[str] = []
+        try:
+            for upload in files:
+                data, content_type = await read_and_validate_image(upload)
+                image_url = save_complaint_image(complaint_id, data, content_type)
+                saved_urls.append(image_url)
+
+            return await ComplaintRepository.add_images(
+                session,
+                complaint_id,
+                saved_urls,
+            )
+        except Exception:
+            for url in saved_urls:
+                delete_complaint_image(url)
+            raise
 
     # ------------------------------------------------------------------
     # Read — Student: own complaint only
