@@ -7,6 +7,7 @@ Register all endpoint routers here.
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import auth, complaints, halls, health, verification, notifications
+from app.api.v1.endpoints.analytics import router as analytics_router
 from app.api.v1.endpoints.schedule import router as schedule_router
 
 api_router = APIRouter()
@@ -34,6 +35,13 @@ api_router.include_router(
     schedule_router,
     prefix="/halls/{hall_id}/schedule",
     tags=["schedule"],
+)
+
+# Analytics: GET /halls/{hall_id}/analytics
+api_router.include_router(
+    analytics_router,
+    prefix="/halls/{hall_id}/analytics",
+    tags=["analytics"],
 )
 
 # Notifications

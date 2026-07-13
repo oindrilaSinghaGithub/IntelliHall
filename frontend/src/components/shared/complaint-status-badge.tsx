@@ -16,6 +16,7 @@ export function ComplaintStatusBadge({ status }: ComplaintStatusBadgeProps) {
     waiting_student_confirmation: "Awaiting Confirmation",
     closed: "Closed",
     visit_failed_room_locked: "Visit Failed (Locked)",
+    reopened: "Reopened",
   };
 
   // Map backend status to distinct styled classes
@@ -29,6 +30,7 @@ export function ComplaintStatusBadge({ status }: ComplaintStatusBadgeProps) {
     waiting_student_confirmation: "bg-orange-500/10 text-orange-500 hover:bg-orange-500/15 border-orange-500/20",
     closed: "bg-slate-500/10 text-slate-400 hover:bg-slate-500/15 border-slate-500/20",
     visit_failed_room_locked: "bg-rose-500/10 text-rose-500 hover:bg-rose-500/15 border-rose-500/20",
+    reopened: "bg-orange-600/10 text-orange-600 hover:bg-orange-600/15 border-orange-600/20",
   };
 
   return (
