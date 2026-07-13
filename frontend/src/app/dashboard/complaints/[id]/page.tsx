@@ -29,6 +29,7 @@ import { ComplaintTimeline } from "@/components/shared/complaint-timeline";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { StudentConfirmationCard } from "@/components/shared/student-confirmation-card";
+import { resolveImageUrl } from "@/utils/image-url";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -365,7 +366,7 @@ export default function ComplaintDetailPage({ params }: PageProps) {
                             {complaint.images.map((img) => (
                               <div key={img.id} className="relative aspect-square rounded-lg border border-border overflow-hidden bg-muted group">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={img.image_url} alt="Attachment" className="object-cover w-full h-full transition-transform group-hover:scale-105" />
+                                <img src={resolveImageUrl(img.image_url)} alt="Attachment" className="object-cover w-full h-full transition-transform group-hover:scale-105" />
                               </div>
                             ))}
                           </div>

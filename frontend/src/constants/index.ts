@@ -8,6 +8,17 @@ export const APP_TAGLINE = "Hall Maintenance & Wellbeing, Reimagined";
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 
+export const BACKEND_ORIGIN = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
+
+export const MAX_COMPLAINT_IMAGES = 5;
+export const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
+export const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
+
 export const NAV_LINKS = [
   { label: "Features", href: "#features" },
   { label: "About", href: "#about" },

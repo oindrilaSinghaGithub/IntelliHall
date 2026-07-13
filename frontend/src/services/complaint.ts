@@ -2,6 +2,7 @@ import { apiClient } from "@/services/api-client";
 import type {
   Complaint,
   ComplaintCreateRequest,
+  ComplaintImage,
   ComplaintSummary,
   CompletionSlip,
   PaginatedResponse,
@@ -15,6 +16,25 @@ import type {
 export async function createComplaint(data: ComplaintCreateRequest): Promise<Complaint> {
   const response = await apiClient.post<Complaint>("/complaints/", data);
   return response.data;
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/complaints/{complaint_id}/images
+// ---------------------------------------------------------------------------
+
+export async function uploadComplaintImages(
+  complaintId: string,
+  files: File[],
+): Promise<ComplaintImage[]> {
+  const formData = new FormData();
+  for (const file of files) {
+    formData.append("files", file);
+  }
+  const response = await apiClient.post<{ images: ComplaintImage[] }>(
+    `/complaints/${complaintId}/images`,
+    formData,
+  );
+  return response.data.images;
 }
 
 // ---------------------------------------------------------------------------

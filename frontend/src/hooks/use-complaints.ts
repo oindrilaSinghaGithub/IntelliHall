@@ -11,6 +11,7 @@ import {
   rejectRepair,
   updateComplaintFields,
   updateComplaintStatus,
+  uploadComplaintImages,
 } from "@/services/complaint";
 import type { ComplaintCreateRequest, StatusUpdateRequest } from "@/types/complaint";
 import { extractApiError } from "@/services/api-client";
@@ -113,11 +114,38 @@ export function useCreateComplaint() {
   const router = useRouter();
 
   return useMutation({
-    mutationFn: (data: ComplaintCreateRequest) => createComplaint(data),
-    onSuccess: (newComplaint) => {
-      toast.success("Complaint raised successfully!");
+    mutationFn: async ({
+      payload,
+      files,
+    }: {
+      payload: ComplaintCreateRequest;
+      files: File[];
+    }) => {
+      const complaint = await createComplaint(payload);
+      if (files.length === 0) {
+        return { complaint, uploadFailed: false as const };
+      }
+      try {
+        await uploadComplaintImages(complaint.id, files);
+        return { complaint, uploadFailed: false as const };
+      } catch (uploadError) {
+        return { complaint, uploadFailed: true as const, uploadError };
+      }
+    },
+    onSuccess: ({ complaint, uploadFailed, uploadError }) => {
+      if (uploadFailed) {
+        const detail = uploadError ? extractApiError(uploadError) : undefined;
+        toast.warning(
+          detail
+            ? `Complaint created, but photo upload failed: ${detail}`
+            : "Complaint created, but photo upload failed.",
+        );
+      } else {
+        toast.success("Complaint raised successfully!");
+      }
       queryClient.invalidateQueries({ queryKey: COMPLAINT_KEYS.student() });
-      router.push(`/dashboard/complaints/${newComplaint.id}`);
+      queryClient.invalidateQueries({ queryKey: COMPLAINT_KEYS.detail(complaint.id) });
+      router.push(`/dashboard/complaints/${complaint.id}`);
     },
     onError: (error: unknown) => {
       const msg = extractApiError(error);

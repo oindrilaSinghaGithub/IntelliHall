@@ -30,6 +30,7 @@ import { NotificationBell } from "@/components/shared/notification-bell";
 import { ComplaintDetailHeader } from "./complaint-detail-header";
 import { AssignmentPanel } from "./assignment-panel";
 import { StatusActionBar } from "./status-action-bar";
+import { resolveImageUrl } from "@/utils/image-url";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -256,7 +257,7 @@ export default function AdminComplaintDetailPage({ params }: PageProps) {
                               >
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
-                                  src={img.image_url}
+                                  src={resolveImageUrl(img.image_url)}
                                   alt="Attachment"
                                   className="object-cover w-full h-full transition-transform group-hover:scale-105"
                                 />

@@ -15,7 +15,7 @@ export default function RaiseComplaintPage() {
   const { user, signOut } = useAuth();
   const createComplaintMutation = useCreateComplaint();
 
-  const handleFormSubmit = (values: ComplaintFormValues) => {
+  const handleFormSubmit = (values: ComplaintFormValues, files: File[]) => {
     // Standardize request payload matching FastAPI constraints
     // Clean empty values to null so the backend handles optional keys correctly.
     const payload = {
@@ -32,7 +32,7 @@ export default function RaiseComplaintPage() {
       preferred_visit_time: values.preferred_visit_time || null,
     };
 
-    createComplaintMutation.mutate(payload);
+    createComplaintMutation.mutate({ payload, files });
   };
 
   return (

@@ -1,19 +1,22 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { ImageUpload } from "@/components/shared/image-upload";
 import { complaintSchema, type ComplaintFormValues } from "@/lib/schemas";
 
 interface ComplaintFormProps {
-  onSubmit: (data: ComplaintFormValues) => void;
+  onSubmit: (data: ComplaintFormValues, files: File[]) => void;
   isLoading: boolean;
 }
 
 export function ComplaintForm({ onSubmit, isLoading }: ComplaintFormProps) {
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const {
     register,
     handleSubmit,
@@ -39,7 +42,7 @@ export function ComplaintForm({ onSubmit, isLoading }: ComplaintFormProps) {
   const complaintType = watch("complaint_type");
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit((data) => onSubmit(data, selectedFiles))} className="space-y-6">
       <Card className="border border-border/50">
         <CardContent className="p-6 space-y-6">
           {/* Title */}
@@ -203,6 +206,12 @@ export function ComplaintForm({ onSubmit, isLoading }: ComplaintFormProps) {
               Select a preferred time window when you will be available.
             </p>
           </div>
+
+          <ImageUpload
+            files={selectedFiles}
+            onChange={setSelectedFiles}
+            disabled={isLoading}
+          />
         </CardContent>
       </Card>
 
