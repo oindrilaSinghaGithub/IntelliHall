@@ -162,6 +162,23 @@ class StatusUpdateRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Reschedule Request
+# ---------------------------------------------------------------------------
+
+
+class RescheduleRequest(BaseModel):
+    """Body for POST /complaints/{complaint_id}/reschedule."""
+
+    preferred_visit_time: datetime = Field(
+        ...,
+        description=(
+            "New preferred visit datetime (ISO 8601, timezone-aware). "
+            "Must be a future timestamp."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
 # ComplaintImage
 # ---------------------------------------------------------------------------
 

@@ -57,6 +57,7 @@ from app.schemas.complaint import (
     ComplaintSummary,
     ComplaintUpdate,
     PaginatedResponse,
+    RescheduleRequest,
     StatusUpdateRequest,
 )
 from app.schemas.completion_slip import CompletionSlipRead
@@ -412,6 +413,52 @@ async def confirm_repair(
     """Student confirms the repair."""
     complaint = await ComplaintService.confirm_repair(
         session, complaint_id, current_user, payload.comment
+    )
+    return ComplaintRead.model_validate(complaint)
+
+
+# ---------------------------------------------------------------------------
+# POST /{complaint_id}/reschedule  — Student: reschedule a failed visit
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/{complaint_id}/reschedule",
+    response_model=ComplaintRead,
+    status_code=status.HTTP_200_OK,
+    summary="Reschedule a failed maintenance visit",
+    description=(
+        "Request a new maintenance visit after the previous one failed because "
+        "the room was locked.\n\n"
+        "**Requires:** the complaint creator's Bearer token.\n\n"
+        "**Rules:**\n"
+        "- Complaint must be in `visit_failed_room_locked` status.\n"
+        "- `preferred_visit_time` must be a future ISO 8601 datetime.\n"
+        "- The complaint status transitions to `scheduled`.\n"
+        "- All existing history, images, and assignment records are preserved.\n"
+        "- A new `ComplaintStatusHistory` entry is written.\n"
+        "- Notifications are sent to the student and all hall admins."
+    ),
+    responses={
+        200: {"description": "Visit rescheduled. Returns the updated complaint."},
+        400: {"description": "Complaint is not in visit_failed_room_locked status, or preferred_visit_time is in the past."},
+        401: {"description": "Missing or invalid Bearer token."},
+        403: {"description": "Not the complaint owner."},
+        404: {"description": "Complaint not found."},
+    },
+    tags=["complaints"],
+)
+async def reschedule_visit(
+    complaint_id: Annotated[str, Path(description="UUID of the complaint.")],
+    payload: RescheduleRequest,
+    session: DBSession,
+    current_user: AuthUser,
+) -> ComplaintRead:
+    """Student reschedules a failed maintenance visit (owner only, visit_failed_room_locked status)."""
+    complaint = await ComplaintService.reschedule_visit(
+        session,
+        complaint_id,
+        payload.preferred_visit_time,
+        current_user,
     )
     return ComplaintRead.model_validate(complaint)
 

@@ -159,3 +159,8 @@ export interface StatusUpdateRequest {
   // Completion field (required when new_status == "completed")
   work_done?: string | null;
 }
+
+export interface RescheduleRequest {
+  /** ISO 8601 datetime string. Must be a future timestamp. */
+  preferred_visit_time: string;
+}

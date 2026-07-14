@@ -6,6 +6,7 @@ import type {
   ComplaintSummary,
   CompletionSlip,
   PaginatedResponse,
+  RescheduleRequest,
   StatusUpdateRequest,
 } from "@/types/complaint";
 
@@ -133,5 +134,17 @@ export async function confirmRepair(id: string, comment?: string | null): Promis
 
 export async function rejectRepair(id: string, comment: string): Promise<Complaint> {
   const response = await apiClient.post<Complaint>(`/complaints/${id}/reject`, { comment });
+  return response.data;
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/complaints/{complaint_id}/reschedule
+// ---------------------------------------------------------------------------
+
+export async function rescheduleComplaint(
+  id: string,
+  data: RescheduleRequest,
+): Promise<Complaint> {
+  const response = await apiClient.post<Complaint>(`/complaints/${id}/reschedule`, data);
   return response.data;
 }

@@ -76,7 +76,13 @@ _TRANSITIONS: dict[ComplaintStatus, set[ComplaintStatus]] = {
     ComplaintStatus.REOPENED: {ComplaintStatus.VERIFIED},
     # Terminal states
     ComplaintStatus.CLOSED: set(),
-    ComplaintStatus.VISIT_FAILED_ROOM_LOCKED: {ComplaintStatus.VERIFIED},
+    # VISIT_FAILED_ROOM_LOCKED:
+    #   VERIFIED  — admin re-verifies and re-schedules manually
+    #   SCHEDULED — student self-reschedules via POST /reschedule (new workflow)
+    ComplaintStatus.VISIT_FAILED_ROOM_LOCKED: {
+        ComplaintStatus.VERIFIED,
+        ComplaintStatus.SCHEDULED,
+    },
 }
 
 # These statuses can be transitioned to from ANY current status
@@ -583,6 +589,20 @@ class ComplaintService:
             remarks=payload.remarks,
         )
 
+        # Notify student when their visit fails due to a locked room so they
+        # know to reschedule.
+        if target == ComplaintStatus.VISIT_FAILED_ROOM_LOCKED:
+            await NotificationService.send(
+                session,
+                user_id=complaint.created_by,
+                complaint_id=complaint.id,
+                message=(
+                    f"Your maintenance visit for complaint '{complaint.title}' could not "
+                    "be completed because your room was locked. "
+                    "Please choose another visit time."
+                ),
+            )
+
         await session.refresh(complaint)
         return complaint
 
@@ -845,3 +865,111 @@ class ComplaintService:
         """Hard-delete a complaint (admin, own hall only)."""
         complaint = await ComplaintService.get_for_admin(session, complaint_id, current_user)
         await ComplaintRepository.delete(session, complaint)
+
+    # ------------------------------------------------------------------
+    # Reschedule Visit (Student — own complaint, VISIT_FAILED_ROOM_LOCKED only)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    async def reschedule_visit(
+        session: AsyncSession,
+        complaint_id: str,
+        preferred_visit_time: datetime,
+        current_user: "User",
+    ) -> Complaint:
+        """
+        Allow a student to reschedule a maintenance visit after it failed
+        because their room was locked.
+
+        Rules
+        -----
+        - Only the complaint owner (student who created it) may call this.
+        - Complaint must currently be VISIT_FAILED_ROOM_LOCKED.
+        - preferred_visit_time must be in the future.
+        - Transitions the complaint to SCHEDULED.
+        - Preserves all existing history, images, and assignment records.
+        - Writes a new ComplaintStatusHistory entry.
+        - Sends notifications to the student (confirmation) and all hall admins.
+        """
+        complaint = await ComplaintService.get_or_404(session, complaint_id)
+
+        # Ownership check
+        if complaint.created_by != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to reschedule this complaint.",
+            )
+
+        # Status check
+        if complaint.status != ComplaintStatus.VISIT_FAILED_ROOM_LOCKED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Cannot reschedule: complaint must be in "
+                    f"'visit_failed_room_locked' status "
+                    f"(current status: '{complaint.status.value}')."
+                ),
+            )
+
+        # Future-time validation
+        now_utc = datetime.now(timezone.utc)
+        # Make preferred_visit_time timezone-aware for comparison if it is naive
+        pvt = preferred_visit_time
+        if pvt.tzinfo is None:
+            pvt = pvt.replace(tzinfo=timezone.utc)
+        if pvt <= now_utc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="preferred_visit_time must be a future date and time.",
+            )
+
+        previous = complaint.status
+
+        # Apply changes — preserve everything else
+        complaint.preferred_visit_time = pvt
+        complaint.status = ComplaintStatus.SCHEDULED
+        complaint.updated_at = now_utc
+        await session.flush()
+
+        # Audit trail
+        await ComplaintRepository.add_status_history(
+            session,
+            complaint_id=complaint.id,
+            previous_status=previous,
+            new_status=ComplaintStatus.SCHEDULED,
+            updated_by=current_user.id,
+            remarks="Student rescheduled visit after room-locked failure.",
+        )
+
+        # Notify student — confirmation that rescheduling was received
+        await NotificationService.send(
+            session,
+            user_id=complaint.created_by,
+            complaint_id=complaint.id,
+            message=(
+                f"Your maintenance visit for complaint '{complaint.title}' has been "
+                "rescheduled. The hall admin will confirm a new visit slot."
+            ),
+        )
+
+        # Notify all hall admins
+        admin_result = await session.execute(
+            select(User).where(
+                User.hall_id == complaint.hall_id,
+                User.role == UserRole.HALL_ADMIN,
+            )
+        )
+        admins = admin_result.scalars().all()
+        for admin in admins:
+            await NotificationService.send(
+                session,
+                user_id=admin.id,
+                complaint_id=complaint.id,
+                message=(
+                    f"The student has requested a new maintenance visit "
+                    f"for complaint '{complaint.title}'."
+                ),
+            )
+
+        await session.refresh(complaint)
+        return complaint

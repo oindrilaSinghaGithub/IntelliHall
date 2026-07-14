@@ -9,11 +9,12 @@ import {
   getMyComplaints,
   getHallComplaints,
   rejectRepair,
+  rescheduleComplaint,
   updateComplaintFields,
   updateComplaintStatus,
   uploadComplaintImages,
 } from "@/services/complaint";
-import type { ComplaintCreateRequest, StatusUpdateRequest } from "@/types/complaint";
+import type { ComplaintCreateRequest, RescheduleRequest, StatusUpdateRequest } from "@/types/complaint";
 import { extractApiError } from "@/services/api-client";
 
 export const COMPLAINT_KEYS = {
@@ -188,6 +189,25 @@ export function useRejectRepair(id: string) {
     },
     onError: (error) => {
       toast.error(extractApiError(error) || "Failed to report issue.");
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Hook: student reschedules a failed visit
+// ---------------------------------------------------------------------------
+
+export function useRescheduleComplaint(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: RescheduleRequest) => rescheduleComplaint(id, data),
+    onSuccess: () => {
+      toast.success("Visit rescheduled! The hall admin will confirm a new slot.");
+      queryClient.invalidateQueries({ queryKey: COMPLAINT_KEYS.detail(id) });
+      queryClient.invalidateQueries({ queryKey: COMPLAINT_KEYS.student() });
+    },
+    onError: (error) => {
+      toast.error(extractApiError(error) || "Failed to reschedule visit.");
     },
   });
 }

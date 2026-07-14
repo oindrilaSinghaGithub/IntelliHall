@@ -29,6 +29,7 @@ import { ComplaintTimeline } from "@/components/shared/complaint-timeline";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { StudentConfirmationCard } from "@/components/shared/student-confirmation-card";
+import { VisitFailedCard } from "@/components/shared/visit-failed-card";
 import { resolveImageUrl } from "@/utils/image-url";
 
 interface PageProps {
@@ -141,6 +142,14 @@ export default function ComplaintDetailPage({ params }: PageProps) {
               <LoadingSkeleton variant="detail" />
             ) : complaint ? (
               <div className="space-y-6">
+                {/* Visit-failed card — shown when room was locked during maintenance visit */}
+                {complaint.status === "visit_failed_room_locked" && (
+                  <VisitFailedCard
+                    complaint={complaint}
+                    onRescheduled={() => {}}
+                  />
+                )}
+
                 {/* Confirmation card — prominent banner when awaiting student input */}
                 {complaint.status === "waiting_student_confirmation" && (
                   <StudentConfirmationCard
