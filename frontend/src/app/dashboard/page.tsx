@@ -26,18 +26,36 @@ export default function DashboardPage() {
     }
   }, [user, router]);
 
-  // Fetch latest 3 complaints for student
+  // Fetch complaints for student (larger page size to compute stats client-side)
   const isStudent = user?.role === "student";
-  const { data: recentComplaints, isLoading: isComplaintsLoading } = useComplaints(
+  const { data: complaintsData, isLoading: isComplaintsLoading } = useComplaints(
     isStudent
       ? {
           page: 1,
-          page_size: 3,
+          page_size: 100,
           sort_by: "created_at",
           sort_order: "desc",
         }
       : { page: 1, page_size: 1 } // dummy/not used for admins
   );
+
+  const allComplaints = complaintsData?.items || [];
+  const displayedRecentComplaints = allComplaints.slice(0, 3);
+
+  // Compute student stats
+  const stats = {
+    total: allComplaints.length,
+    submitted: allComplaints.filter((c) =>
+      ["submitted", "verified", "scheduled", "reopened"].includes(c.status)
+    ).length,
+    inProgress: allComplaints.filter((c) =>
+      ["in_progress", "visit_failed_room_locked"].includes(c.status)
+    ).length,
+    completed: allComplaints.filter((c) =>
+      ["completed", "waiting_student_confirmation"].includes(c.status)
+    ).length,
+    closed: allComplaints.filter((c) => c.status === "closed").length,
+  };
 
   return (
     <AuthGuard>
@@ -189,26 +207,52 @@ export default function DashboardPage() {
                     </CardContent>
                   </Card>
 
-                  {/* Hall Management Placeholder */}
-                  <div className="group relative rounded-xl border border-border/50 bg-card p-6 shadow-xs transition-all hover:border-primary/30">
-                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/15">
-                      <Building2 className="h-5 w-5 text-primary" />
-                    </div>
-                    <h3 className="font-semibold text-sm">Hall Management</h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      View hall information and assigned residents.
-                    </p>
-                    <span className="mt-3 inline-block rounded-full bg-secondary px-2.5 py-0.5 text-[10px] font-medium text-secondary-foreground">
-                      Coming soon
-                    </span>
-                  </div>
+                  {/* My Complaint Summary Card */}
+                  <Card className="border border-border/50 bg-card">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg font-bold flex items-center gap-2">
+                        <ClipboardList className="h-5 w-5 text-primary" />
+                        My Complaint Summary
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {allComplaints.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-4">
+                          No complaints submitted yet.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="col-span-2 flex items-center justify-between p-2 rounded-lg bg-primary/5 border border-primary/10">
+                            <span className="font-semibold text-foreground">Total Complaints</span>
+                            <span className="font-bold text-sm text-primary">{stats.total}</span>
+                          </div>
+                          <div className="flex items-center justify-between p-2 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                            <span className="text-muted-foreground">Submitted</span>
+                            <Badge variant="outline" className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 font-bold border-none">{stats.submitted}</Badge>
+                          </div>
+                          <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                            <span className="text-muted-foreground">In Progress</span>
+                            <Badge variant="outline" className="bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 font-bold border-none">{stats.inProgress}</Badge>
+                          </div>
+                          <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+                            <span className="text-muted-foreground">Completed</span>
+                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 font-bold border-none">{stats.completed}</Badge>
+                          </div>
+                          <div className="flex items-center justify-between p-2 rounded-lg bg-slate-500/5 border border-slate-500/10">
+                            <span className="text-muted-foreground">Closed</span>
+                            <Badge variant="outline" className="bg-slate-500/10 text-slate-400 hover:bg-slate-500/20 font-bold border-none">{stats.closed}</Badge>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </div>
 
                 {/* Recent Complaints Column */}
                 <div className="md:col-span-2 space-y-4">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-bold tracking-tight">Recent Complaints</h2>
-                    {recentComplaints && recentComplaints.items.length > 0 && (
+                    {allComplaints.length > 0 && (
                       <Link
                         href="/dashboard/complaints"
                         className="inline-flex items-center text-xs font-medium text-primary hover:underline gap-1"
@@ -221,7 +265,7 @@ export default function DashboardPage() {
 
                   {isComplaintsLoading ? (
                     <LoadingSkeleton variant="list" count={3} />
-                  ) : !recentComplaints || recentComplaints.items.length === 0 ? (
+                  ) : allComplaints.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-border/80 bg-card/50 p-8 text-center shadow-xs">
                       <p className="text-sm font-medium text-muted-foreground">
                         No complaints raised yet.
@@ -232,7 +276,7 @@ export default function DashboardPage() {
                     </div>
                   ) : (
                     <div className="grid gap-4">
-                      {recentComplaints.items.map((complaint) => (
+                      {displayedRecentComplaints.map((complaint) => (
                         <ComplaintCard key={complaint.id} complaint={complaint} />
                       ))}
                     </div>
