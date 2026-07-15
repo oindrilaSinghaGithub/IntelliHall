@@ -25,6 +25,7 @@ import { useComplaint } from "@/hooks/use-complaints";
 import { ComplaintTimeline } from "@/components/shared/complaint-timeline";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { NotificationBell } from "@/components/shared/notification-bell";
+import { AiPriorityBadge } from "@/components/shared/ai-priority-badge";
 
 // Import broken-down subcomponents
 import { ComplaintDetailHeader } from "./complaint-detail-header";
@@ -279,6 +280,16 @@ export default function AdminComplaintDetailPage({ params }: PageProps) {
                         // React Query will automatically refetch via invalidation in the hooks
                       }}
                     />
+
+                    {/* AI Priority Prediction card — shown when AI data is available */}
+                    {complaint.predicted_priority && (
+                      <AiPriorityBadge
+                        studentPriority={complaint.priority}
+                        predictedPriority={complaint.predicted_priority}
+                        aiConfidence={complaint.ai_confidence}
+                        variant="card"
+                      />
+                    )}
 
                     {/* Assignment info panel (read-only, shown when scheduled) */}
                     {complaint.assignment && (

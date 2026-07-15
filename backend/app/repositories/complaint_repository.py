@@ -65,6 +65,8 @@ class ComplaintRepository:
         *,
         user_id: str,
         hall_id: str,
+        predicted_priority: ComplaintPriority | None = None,
+        ai_confidence: float | None = None,
     ) -> Complaint:
         """
         Persist a new Complaint row.
@@ -72,6 +74,11 @@ class ComplaintRepository:
         ``user_id`` and ``hall_id`` are passed explicitly (resolved from the
         authenticated user by the service layer) rather than taken from the
         request schema, so that clients can never spoof either field.
+
+        ``predicted_priority`` and ``ai_confidence`` are optional AI-generated
+        values injected by the service layer after calling PriorityPredictor.
+        They are stored alongside the student's own ``priority`` selection and
+        never overwrite it.
 
         Sets ``status`` to SUBMITTED and leaves all admin-only fields
         (maintenance_type, current_assignee) as NULL.
@@ -91,11 +98,14 @@ class ComplaintRepository:
             preferred_visit_time=data.preferred_visit_time,
             hall_id=hall_id,
             created_by=user_id,
+            predicted_priority=predicted_priority,
+            ai_confidence=ai_confidence,
         )
         session.add(complaint)
         await session.flush()          # obtain id without committing
         await session.refresh(complaint)
         return complaint
+
 
     # ------------------------------------------------------------------
     # Read — single

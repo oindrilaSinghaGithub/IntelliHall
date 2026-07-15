@@ -368,6 +368,16 @@ class ComplaintRead(ComplaintBase):
         description="Status-change audit trail.",
     )
 
+    # AI prediction fields
+    predicted_priority: ComplaintPriority | None = Field(
+        default=None,
+        description="AI-predicted urgency level (may differ from student-selected priority).",
+    )
+    ai_confidence: float | None = Field(
+        default=None,
+        description="AI prediction confidence score in range [0.0, 1.0].",
+    )
+
     # New relationships for maintenance workflow
     assignment: "AssignmentRead | None" = Field(
         default=None,
@@ -404,6 +414,14 @@ class ComplaintSummary(BaseModel):
     floor: str | None = Field(default=None, description="Floor level for common area complaints.")
     common_area: str | None = Field(default=None, description="Common area location name.")
     student_name: str | None = Field(default=None, description="Display name of the creator student.")
+    predicted_priority: ComplaintPriority | None = Field(
+        default=None,
+        description="AI-predicted urgency level.",
+    )
+    ai_confidence: float | None = Field(
+        default=None,
+        description="AI prediction confidence score in range [0.0, 1.0].",
+    )
 
 # ---------------------------------------------------------------------------
 # Forward references resolution

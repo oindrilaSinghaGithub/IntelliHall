@@ -168,11 +168,26 @@ class ComplaintService:
                     ),
                 )
 
+        # ------------------------------------------------------------------
+        # AI Priority Prediction
+        # Runs after all validation passes; never overwrites student's choice.
+        # ------------------------------------------------------------------
+        from app.ai import PriorityPredictor  # local import keeps startup fast
+
+        prediction = PriorityPredictor().predict(
+            title=data.title,
+            description=data.description,
+        )
+        predicted_priority = prediction["priority"]
+        ai_confidence = prediction["confidence"]
+
         return await ComplaintRepository.create(
             session,
             data,
             user_id=current_user.id,
             hall_id=current_user.hall_id,
+            predicted_priority=predicted_priority,
+            ai_confidence=ai_confidence,
         )
 
     # ------------------------------------------------------------------

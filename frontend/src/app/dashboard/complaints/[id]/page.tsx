@@ -30,6 +30,7 @@ import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { StudentConfirmationCard } from "@/components/shared/student-confirmation-card";
 import { VisitFailedCard } from "@/components/shared/visit-failed-card";
+import { AiPriorityBadge } from "@/components/shared/ai-priority-badge";
 import { resolveImageUrl } from "@/utils/image-url";
 
 interface PageProps {
@@ -181,6 +182,17 @@ export default function ComplaintDetailPage({ params }: PageProps) {
                         ID: <span className="font-mono">{complaint.id.slice(0, 8)}…</span>
                       </span>
                     </div>
+                    {/* AI Priority inline badge — shows when AI data available */}
+                    {complaint.predicted_priority && (
+                      <div className="mt-1">
+                        <AiPriorityBadge
+                          studentPriority={complaint.priority}
+                          predictedPriority={complaint.predicted_priority}
+                          aiConfidence={complaint.ai_confidence}
+                          variant="inline"
+                        />
+                      </div>
+                    )}
                     <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
                       {complaint.title}
                     </h1>

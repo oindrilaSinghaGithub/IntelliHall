@@ -108,6 +108,8 @@ export interface Complaint {
   student_name?: string | null;
   assignment?: ComplaintAssignment | null;
   completion_slip?: CompletionSlip | null;
+  predicted_priority?: ComplaintPriority | null;
+  ai_confidence?: number | null;
 }
 
 export interface ComplaintSummary {
@@ -123,6 +125,8 @@ export interface ComplaintSummary {
   floor?: string | null;
   common_area?: string | null;
   student_name?: string | null;
+  predicted_priority?: ComplaintPriority | null;
+  ai_confidence?: number | null;
 }
 
 export interface PaginatedResponse<T> {

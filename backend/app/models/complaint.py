@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     DateTime,
     Enum as SAEnum,
+    Float,
     ForeignKey,
     Index,
     String,
@@ -112,6 +113,23 @@ class Complaint(TimestampedBase):
         default=ComplaintPriority.MEDIUM,
         index=True,
         comment="Urgency level of the complaint.",
+    )
+
+    predicted_priority: Mapped[ComplaintPriority | None] = mapped_column(
+        SAEnum(
+            ComplaintPriority,
+            name="complaintpriority",
+            create_constraint=False,
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        nullable=True,
+        comment="AI-predicted urgency level (may differ from student-selected priority).",
+    )
+
+    ai_confidence: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="Prediction confidence score in range [0.0, 1.0].",
     )
 
     status: Mapped[ComplaintStatus] = mapped_column(
