@@ -599,7 +599,12 @@ export default function AdminDashboardPage() {
                                 </span>
                               </td>
                               <td className="px-6 py-4 text-muted-foreground">
-                                {locationText}
+                                <div>{locationText}</div>
+                                {c.complaint_type === "common_area" && (
+                                  <div className="text-[10px] text-primary/90 font-medium mt-0.5">
+                                    Students Affected: {c.affected_count || 0}
+                                  </div>
+                                )}
                               </td>
                               <td className="px-6 py-4 text-muted-foreground">
                                 {formattedDate}

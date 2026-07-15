@@ -30,8 +30,10 @@ from sqlalchemy import (
     Index,
     String,
     Text,
+    select,
+    func,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
 
 from app.db.base import TimestampedBase
 from app.models.enums import (
@@ -280,6 +282,13 @@ class Complaint(TimestampedBase):
         lazy="selectin",
     )
 
+    affected_entries: Mapped[list["CommonAreaAffected"]] = relationship(
+        "CommonAreaAffected",
+        back_populates="complaint",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
     # ------------------------------------------------------------------
     # Composite indexes for common query patterns
     # ------------------------------------------------------------------
@@ -463,3 +472,60 @@ class ComplaintStatusHistory(TimestampedBase):
             f"complaint_id={self.complaint_id!r} "
             f"new_status={self.new_status.value!r}>"
         )
+
+
+# ---------------------------------------------------------------------------
+# CommonAreaAffected
+# ---------------------------------------------------------------------------
+
+
+class CommonAreaAffected(TimestampedBase):
+    """Tracks which students are affected by a common area complaint."""
+
+    __tablename__ = "common_area_affected"
+
+    # Foreign keys
+    complaint_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("complaints.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="FK to the complaint this student is affected by.",
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="FK to the student who marked themselves as affected.",
+    )
+
+    # Relationships
+    complaint: Mapped["Complaint"] = relationship(
+        "Complaint",
+        back_populates="affected_entries",
+        lazy="selectin",
+    )
+
+    user: Mapped["User"] = relationship(
+        "User",
+        lazy="selectin",
+    )
+
+    # Unique index to prevent duplicate records
+    __table_args__ = (
+        Index("ix_common_area_affected_unique", "complaint_id", "user_id", unique=True),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<CommonAreaAffected complaint_id={self.complaint_id!r} user_id={self.user_id!r}>"
+
+
+# Define column property on Complaint after CommonAreaAffected is declared
+Complaint.affected_count = column_property(
+    select(func.count(CommonAreaAffected.id))
+    .where(CommonAreaAffected.complaint_id == Complaint.id)
+    .correlate_except(CommonAreaAffected)
+    .scalar_subquery()
+)

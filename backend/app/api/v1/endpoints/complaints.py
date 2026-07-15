@@ -225,7 +225,14 @@ async def get_my_complaint(
         complaint = await ComplaintService.get_for_admin(session, complaint_id, current_user)
     else:
         complaint = await ComplaintService.get_for_student(session, complaint_id, current_user)
-    return ComplaintRead.model_validate(complaint)
+    
+    read_schema = ComplaintRead.model_validate(complaint)
+    read_schema.is_affected = any(entry.user_id == current_user.id for entry in complaint.affected_entries)
+    if complaint.creator.room_number:
+        read_schema.reporter_room = f"Room {complaint.creator.room_number}"
+    else:
+        read_schema.reporter_room = "Anonymous Student"
+    return read_schema
 
 
 # ---------------------------------------------------------------------------
@@ -491,3 +498,39 @@ async def reject_repair(
         session, complaint_id, current_user, payload.comment
     )
     return ComplaintRead.model_validate(complaint)
+
+
+# ---------------------------------------------------------------------------
+# Community Impact endpoints (Mark / Remove Affected)
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/{complaint_id}/affected",
+    status_code=status.HTTP_200_OK,
+    summary="Mark affected",
+    description="Mark the calling student as affected by this common area complaint.",
+    tags=["complaints"],
+)
+async def mark_affected(
+    complaint_id: Annotated[str, Path(description="UUID of the complaint.")],
+    session: DBSession,
+    current_user: AuthUser,
+) -> dict[str, object]:
+    """Mark the student as affected by a common area complaint."""
+    return await ComplaintService.mark_affected(session, complaint_id, current_user)
+
+
+@router.delete(
+    "/{complaint_id}/affected",
+    status_code=status.HTTP_200_OK,
+    summary="Remove affected",
+    description="Remove the calling student from being affected by this common area complaint.",
+    tags=["complaints"],
+)
+async def remove_affected(
+    complaint_id: Annotated[str, Path(description="UUID of the complaint.")],
+    session: DBSession,
+    current_user: AuthUser,
+) -> dict[str, object]:
+    """Remove the student from being affected by a common area complaint."""
+    return await ComplaintService.remove_affected(session, complaint_id, current_user)

@@ -388,6 +388,21 @@ class ComplaintRead(ComplaintBase):
         description="Completion slip (when complaint is marked complete).",
     )
 
+    # Community Impact fields
+    affected_count: int = Field(
+        default=0,
+        description="Total number of students who marked themselves affected.",
+    )
+    is_affected: bool = Field(
+        default=False,
+        description="True if the current calling user has marked themselves affected.",
+    )
+    reporter_room: str | None = Field(
+        default=None,
+        description="Privacy-friendly room/location identifier of the reporter student.",
+    )
+
+
 
 # ---------------------------------------------------------------------------
 # Complaint — Summary (lightweight list view)
@@ -422,6 +437,21 @@ class ComplaintSummary(BaseModel):
         default=None,
         description="AI prediction confidence score in range [0.0, 1.0].",
     )
+
+    # Community Impact fields
+    affected_count: int = Field(
+        default=0,
+        description="Total number of students who marked themselves affected.",
+    )
+    is_affected: bool = Field(
+        default=False,
+        description="True if the current calling user has marked themselves affected.",
+    )
+    reporter_room: str | None = Field(
+        default=None,
+        description="Privacy-friendly room/location identifier of the reporter student.",
+    )
+
 
 # ---------------------------------------------------------------------------
 # Forward references resolution

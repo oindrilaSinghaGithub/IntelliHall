@@ -19,6 +19,7 @@ from app.models.complaint import (  # noqa: F401
     Complaint,
     ComplaintImage,
     ComplaintStatusHistory,
+    CommonAreaAffected,
 )
 from app.models.assignment import ComplaintAssignment  # noqa: F401
 from app.models.completion_slip import CompletionSlip  # noqa: F401

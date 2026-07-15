@@ -110,6 +110,9 @@ export interface Complaint {
   completion_slip?: CompletionSlip | null;
   predicted_priority?: ComplaintPriority | null;
   ai_confidence?: number | null;
+  affected_count?: number;
+  is_affected?: boolean;
+  reporter_room?: string | null;
 }
 
 export interface ComplaintSummary {
@@ -127,6 +130,9 @@ export interface ComplaintSummary {
   student_name?: string | null;
   predicted_priority?: ComplaintPriority | null;
   ai_confidence?: number | null;
+  affected_count?: number;
+  is_affected?: boolean;
+  reporter_room?: string | null;
 }
 
 export interface PaginatedResponse<T> {

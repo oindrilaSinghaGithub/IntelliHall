@@ -219,7 +219,10 @@ class AnalyticsRepository:
         stmt = (
             select(Complaint)
             .where(Complaint.hall_id == hall_id)
-            .options(selectinload(Complaint.creator))
+            .options(
+                selectinload(Complaint.creator),
+                selectinload(Complaint.affected_entries),
+            )
             .order_by(Complaint.created_at.desc())
             .limit(limit)
         )

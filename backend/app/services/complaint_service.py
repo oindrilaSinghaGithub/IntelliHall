@@ -34,7 +34,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.models.complaint import Complaint
+from app.models.complaint import Complaint, CommonAreaAffected
 from app.models.enums import ComplaintStatus, ComplaintType, StudentConfirmationStatus, UserRole
 from app.models.user import User
 from app.repositories.assignment_repository import AssignmentRepository
@@ -266,13 +266,20 @@ class ComplaintService:
         complaint_id: str,
         current_user: "User",
     ) -> Complaint:
-        """Fetch a complaint for a student, enforcing ownership."""
+        """Fetch a complaint for a student, enforcing ownership or hall common area visibility."""
         complaint = await ComplaintService.get_or_404(session, complaint_id)
-        if complaint.created_by != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to view this complaint.",
-            )
+        if complaint.complaint_type == ComplaintType.COMMON_AREA:
+            if complaint.hall_id != current_user.hall_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You do not have permission to view common area complaints from another hall.",
+                )
+        else:
+            if complaint.created_by != current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You do not have permission to view this complaint.",
+                )
         return complaint
 
     # ------------------------------------------------------------------
@@ -285,20 +292,44 @@ class ComplaintService:
         filters: ComplaintFilters,
         current_user: "User",
     ) -> "PaginatedResponse[ComplaintSummary]":
-        """Return a paginated list of the authenticated student's own complaints."""
-        items, total = await ComplaintRepository.list(
-            session,
-            created_by=current_user.id,
-            status=filters.status,
-            priority=filters.priority,
-            category=filters.category,
-            complaint_type=filters.complaint_type,
-            page=filters.page,
-            page_size=filters.page_size,
-            sort_by=filters.sort_by,
-            sort_order=filters.sort_order,
-        )
-        summaries = [ComplaintSummary.model_validate(c) for c in items]
+        """Return a paginated list of the student's own complaints or all hall common area complaints."""
+        if filters.complaint_type == ComplaintType.COMMON_AREA:
+            items, total = await ComplaintRepository.list(
+                session,
+                hall_id=current_user.hall_id,
+                status=filters.status,
+                priority=filters.priority,
+                category=filters.category,
+                complaint_type=ComplaintType.COMMON_AREA,
+                page=filters.page,
+                page_size=filters.page_size,
+                sort_by=filters.sort_by,
+                sort_order=filters.sort_order,
+            )
+        else:
+            items, total = await ComplaintRepository.list(
+                session,
+                created_by=current_user.id,
+                status=filters.status,
+                priority=filters.priority,
+                category=filters.category,
+                complaint_type=filters.complaint_type,
+                page=filters.page,
+                page_size=filters.page_size,
+                sort_by=filters.sort_by,
+                sort_order=filters.sort_order,
+            )
+        
+        summaries = []
+        for c in items:
+            summary = ComplaintSummary.model_validate(c)
+            summary.is_affected = any(entry.user_id == current_user.id for entry in c.affected_entries)
+            if c.creator.room_number:
+                summary.reporter_room = f"Room {c.creator.room_number}"
+            else:
+                summary.reporter_room = "Anonymous Student"
+            summaries.append(summary)
+
         pages = math.ceil(total / filters.page_size) if total > 0 else 1
         return PaginatedResponse[ComplaintSummary](
             items=summaries,
@@ -357,7 +388,16 @@ class ComplaintService:
             sort_by=filters.sort_by,
             sort_order=filters.sort_order,
         )
-        summaries = [ComplaintSummary.model_validate(c) for c in items]
+        summaries = []
+        for c in items:
+            summary = ComplaintSummary.model_validate(c)
+            summary.is_affected = any(entry.user_id == current_user.id for entry in c.affected_entries)
+            if c.creator.room_number:
+                summary.reporter_room = f"Room {c.creator.room_number}"
+            else:
+                summary.reporter_room = "Anonymous Student"
+            summaries.append(summary)
+
         pages = math.ceil(total / filters.page_size) if total > 0 else 1
         return PaginatedResponse[ComplaintSummary](
             items=summaries,
@@ -988,3 +1028,106 @@ class ComplaintService:
 
         await session.refresh(complaint)
         return complaint
+
+    @staticmethod
+    async def mark_affected(
+        session: AsyncSession,
+        complaint_id: str,
+        current_user: "User",
+    ) -> dict[str, object]:
+        """Mark the authenticated student as affected by a common area complaint (idempotent)."""
+        if current_user.role != UserRole.STUDENT:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only students can mark themselves as affected by common area complaints.",
+            )
+
+        complaint = await ComplaintService.get_or_404(session, complaint_id)
+
+        if complaint.complaint_type != ComplaintType.COMMON_AREA:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Community impact can only be marked on common area complaints.",
+            )
+
+        if complaint.hall_id != current_user.hall_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot mark yourself affected by complaints from another hall.",
+            )
+
+        if complaint.status == ComplaintStatus.CLOSED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Closed complaints cannot receive new affected responses.",
+            )
+
+        # Check if already marked
+        result = await session.execute(
+            select(CommonAreaAffected).where(
+                CommonAreaAffected.complaint_id == complaint_id,
+                CommonAreaAffected.user_id == current_user.id,
+            )
+        )
+        existing = result.scalar_one_or_none()
+
+        if not existing:
+            new_affected = CommonAreaAffected(
+                complaint_id=complaint_id,
+                user_id=current_user.id,
+            )
+            session.add(new_affected)
+            await session.flush()
+            await session.refresh(complaint)
+
+        return {
+            "affected_count": complaint.affected_count,
+            "is_affected": True,
+        }
+
+    @staticmethod
+    async def remove_affected(
+        session: AsyncSession,
+        complaint_id: str,
+        current_user: "User",
+    ) -> dict[str, object]:
+        """Remove the authenticated student from being affected by a common area complaint."""
+        if current_user.role != UserRole.STUDENT:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only students can toggle affected status.",
+            )
+
+        complaint = await ComplaintService.get_or_404(session, complaint_id)
+
+        if complaint.complaint_type != ComplaintType.COMMON_AREA:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Community impact can only be removed from common area complaints.",
+            )
+
+        if complaint.hall_id != current_user.hall_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot interact with complaints from another hall.",
+            )
+
+        # Check if marked
+        result = await session.execute(
+            select(CommonAreaAffected).where(
+                CommonAreaAffected.complaint_id == complaint_id,
+                CommonAreaAffected.user_id == current_user.id,
+            )
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            await session.delete(existing)
+            await session.flush()
+            await session.refresh(complaint)
+
+        return {
+            "affected_count": complaint.affected_count,
+            "is_affected": False,
+        }
+

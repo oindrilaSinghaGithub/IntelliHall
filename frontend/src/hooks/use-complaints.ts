@@ -13,6 +13,8 @@ import {
   updateComplaintFields,
   updateComplaintStatus,
   uploadComplaintImages,
+  markAffected,
+  removeAffected,
 } from "@/services/complaint";
 import type { ComplaintCreateRequest, RescheduleRequest, StatusUpdateRequest } from "@/types/complaint";
 import { extractApiError } from "@/services/api-client";
@@ -211,3 +213,29 @@ export function useRescheduleComplaint(id: string) {
     },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Hook: toggle student affected status (mark or remove)
+// ---------------------------------------------------------------------------
+
+export function useToggleAffected(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (isAffected: boolean) => {
+      return isAffected ? removeAffected(id) : markAffected(id);
+    },
+    onSuccess: (data) => {
+      if (data.is_affected) {
+        toast.success("Marked as affected by this issue.");
+      } else {
+        toast.success("Removed affected status.");
+      }
+      queryClient.invalidateQueries({ queryKey: COMPLAINT_KEYS.detail(id) });
+      queryClient.invalidateQueries({ queryKey: COMPLAINT_KEYS.student() });
+    },
+    onError: (error) => {
+      toast.error(extractApiError(error) || "Failed to toggle affected status.");
+    },
+  });
+}
+

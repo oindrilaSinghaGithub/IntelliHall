@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, LogOut, ClipboardList, LayoutDashboard, Plus, ArrowRight, CheckCircle2, Clock, XCircle, User } from "lucide-react";
+import { Building2, LogOut, ClipboardList, LayoutDashboard, Plus, ArrowRight, CheckCircle2, Clock, XCircle, User, AlertTriangle, ChevronRight, Calendar } from "lucide-react";
 import Link from "next/link";
 
 import { AuthGuard } from "@/components/shared/auth-guard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
-import { useComplaints } from "@/hooks/use-complaints";
+import { useComplaints, useToggleAffected } from "@/hooks/use-complaints";
 import { ComplaintCard } from "@/components/shared/complaint-card";
+import { ComplaintStatusBadge } from "@/components/shared/complaint-status-badge";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { NotificationBell } from "@/components/shared/notification-bell";
@@ -28,6 +29,8 @@ export default function DashboardPage() {
 
   // Fetch complaints for student (larger page size to compute stats client-side)
   const isStudent = user?.role === "student";
+  const [activeTab, setActiveTab] = useState<"my" | "common">("my");
+
   const { data: complaintsData, isLoading: isComplaintsLoading } = useComplaints(
     isStudent
       ? {
@@ -39,8 +42,45 @@ export default function DashboardPage() {
       : { page: 1, page_size: 1 } // dummy/not used for admins
   );
 
+  const { data: commonComplaintsData, isLoading: isCommonLoading } = useComplaints(
+    isStudent
+      ? {
+          page: 1,
+          page_size: 100,
+          complaint_type: "common_area",
+          sort_by: "created_at",
+          sort_order: "desc",
+        }
+      : { page: 1, page_size: 1 }
+  );
+
   const allComplaints = complaintsData?.items || [];
   const displayedRecentComplaints = allComplaints.slice(0, 3);
+
+  const commonAreaComplaints = commonComplaintsData?.items || [];
+
+  const PRIORITY_ORDER: Record<string, number> = {
+    critical: 4,
+    high: 3,
+    medium: 2,
+    low: 1,
+  };
+
+  const sortedCommonComplaints = [...commonAreaComplaints].sort((a, b) => {
+    // 1. AI Priority (use predicted_priority with fallback to priority)
+    const aPri = PRIORITY_ORDER[a.predicted_priority || a.priority] || 0;
+    const bPri = PRIORITY_ORDER[b.predicted_priority || b.priority] || 0;
+    if (bPri !== aPri) return bPri - aPri;
+
+    // 2. Students Affected
+    const aAff = a.affected_count || 0;
+    const bAff = b.affected_count || 0;
+    if (bAff !== aAff) return bAff - aAff;
+
+    // 3. Creation Date
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+
 
   // Compute student stats
   const stats = {
@@ -248,37 +288,90 @@ export default function DashboardPage() {
                   </Card>
                 </div>
 
-                {/* Recent Complaints Column */}
+                {/* Recent Complaints Column with Tabbed Interface */}
                 <div className="md:col-span-2 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-bold tracking-tight">Recent Complaints</h2>
-                    {allComplaints.length > 0 && (
-                      <Link
-                        href="/dashboard/complaints"
-                        className="inline-flex items-center text-xs font-medium text-primary hover:underline gap-1"
-                      >
-                        View all
-                        <ArrowRight className="h-3 w-3" />
-                      </Link>
-                    )}
+                  {/* Tab Selector */}
+                  <div className="flex border-b border-border/40">
+                    <button
+                      onClick={() => setActiveTab("my")}
+                      className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-all duration-200 ${
+                        activeTab === "my"
+                          ? "border-primary text-primary"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      My Complaints
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("common")}
+                      className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-all duration-200 ${
+                        activeTab === "common"
+                          ? "border-primary text-primary"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Common Area ({sortedCommonComplaints.length})
+                    </button>
                   </div>
 
-                  {isComplaintsLoading ? (
-                    <LoadingSkeleton variant="list" count={3} />
-                  ) : allComplaints.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-border/80 bg-card/50 p-8 text-center shadow-xs">
-                      <p className="text-sm font-medium text-muted-foreground">
-                        No complaints raised yet.
-                      </p>
-                      <p className="text-xs text-muted-foreground/80 mt-1">
-                        If you have any room or common area maintenance issues, click Raise Complaint.
-                      </p>
+                  {activeTab === "my" ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">My Recent Complaints</h2>
+                        {allComplaints.length > 0 && (
+                          <Link
+                            href="/dashboard/complaints"
+                            className="inline-flex items-center text-xs font-medium text-primary hover:underline gap-1"
+                          >
+                            View all
+                            <ArrowRight className="h-3 w-3" />
+                          </Link>
+                        )}
+                      </div>
+
+                      {isComplaintsLoading ? (
+                        <LoadingSkeleton variant="list" count={3} />
+                      ) : allComplaints.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-border/80 bg-card/50 p-8 text-center shadow-xs">
+                          <p className="text-sm font-medium text-muted-foreground">
+                            No complaints raised yet.
+                          </p>
+                          <p className="text-xs text-muted-foreground/80 mt-1">
+                            If you have any room or common area maintenance issues, click Raise Complaint.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid gap-4">
+                          {displayedRecentComplaints.map((complaint) => (
+                            <ComplaintCard key={complaint.id} complaint={complaint} />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ) : (
-                    <div className="grid gap-4">
-                      {displayedRecentComplaints.map((complaint) => (
-                        <ComplaintCard key={complaint.id} complaint={complaint} />
-                      ))}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Hall Common Area Issues</h2>
+                      </div>
+
+                      {isCommonLoading ? (
+                        <LoadingSkeleton variant="list" count={3} />
+                      ) : sortedCommonComplaints.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-border/80 bg-card/50 p-8 text-center shadow-xs">
+                          <p className="text-sm font-medium text-muted-foreground">
+                            No common area complaints in your hall yet.
+                          </p>
+                          <p className="text-xs text-muted-foreground/80 mt-1">
+                            All common area issues reported by residents of your hall will appear here.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid gap-4">
+                          {sortedCommonComplaints.map((complaint) => (
+                            <CommonComplaintCard key={complaint.id} complaint={complaint} />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -316,6 +409,124 @@ export default function DashboardPage() {
         </main>
       </div>
     </AuthGuard>
+  );
+}
+
+function CommonComplaintCard({ complaint }: { complaint: any }) {
+  const toggleAffected = useToggleAffected(complaint.id);
+
+  // Format Category
+  const formatCategory = (cat: string) => {
+    return cat.charAt(0).toUpperCase() + cat.slice(1).replace("_", " ");
+  };
+
+  // Format Date
+  const formatDate = (dateString: string) => {
+    const d = new Date(dateString);
+    return d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  // Priority Styles
+  const priorityStyles: Record<string, string> = {
+    low: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+    medium: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20",
+    high: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
+    critical: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20 animate-pulse",
+  };
+
+  const displayPriority = complaint.predicted_priority || complaint.priority;
+
+  return (
+    <Link href={`/dashboard/complaints/${complaint.id}`} className="block group">
+      <Card className="overflow-hidden border border-border/50 bg-card transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+        <CardContent className="p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-2.5 flex-1">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground uppercase tracking-wider">
+                  {formatCategory(complaint.category)}
+                </span>
+                <span className={`inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded border ${priorityStyles[displayPriority]}`}>
+                  {displayPriority === "critical" && (
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                  )}
+                  {displayPriority.toUpperCase()}
+                </span>
+                {complaint.predicted_priority && (
+                  <Badge variant="outline" className="border-emerald-500/30 text-emerald-500 bg-emerald-500/5 text-[10px] font-semibold py-0 leading-none">
+                    AI Predicted
+                  </Badge>
+                )}
+              </div>
+              
+              <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                {complaint.title}
+              </h3>
+
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5 shrink-0" />
+                  <span>Raised on {formatDate(complaint.created_at)}</span>
+                </div>
+                <div>•</div>
+                <div className="font-medium text-foreground/80">
+                  {complaint.reporter_room || "Anonymous Student"}
+                </div>
+                {complaint.common_area && (
+                  <>
+                    <div>•</div>
+                    <div className="text-primary/95 font-medium">
+                      {complaint.common_area} {complaint.block ? `(${complaint.block})` : ""}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between sm:flex-col sm:items-end sm:justify-center gap-3 border-t border-border/40 pt-3 sm:border-0 sm:pt-0 shrink-0">
+              <div className="flex flex-col items-end gap-1.5">
+                <ComplaintStatusBadge status={complaint.status} />
+              </div>
+              <div className="hidden sm:flex items-center text-xs font-medium text-muted-foreground group-hover:text-primary transition-colors gap-1">
+                View details
+                <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-border/40 flex items-center justify-between">
+            <span className="text-xs text-muted-foreground font-medium">
+              <span className="text-foreground font-semibold">{complaint.affected_count || 0}</span>{" "}
+              {complaint.affected_count === 1 ? "Student Affected" : "Students Affected"}
+            </span>
+
+            {complaint.status !== "closed" ? (
+              <Button
+                size="sm"
+                variant={complaint.is_affected ? "default" : "outline"}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleAffected.mutate(complaint.is_affected || false);
+                }}
+                disabled={toggleAffected.isPending}
+                className="h-8 gap-1.5 text-xs font-semibold px-3"
+              >
+                👍 {complaint.is_affected ? "Affected" : "I'm Affected"}
+              </Button>
+            ) : (
+              <Badge variant="outline" className="text-muted-foreground border-border/60 text-[10px]">
+                Closed
+              </Badge>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 

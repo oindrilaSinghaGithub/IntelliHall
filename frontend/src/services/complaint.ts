@@ -148,3 +148,18 @@ export async function rescheduleComplaint(
   const response = await apiClient.post<Complaint>(`/complaints/${id}/reschedule`, data);
   return response.data;
 }
+
+// ---------------------------------------------------------------------------
+// POST & DELETE /api/v1/complaints/{complaint_id}/affected
+// ---------------------------------------------------------------------------
+
+export async function markAffected(id: string): Promise<{ affected_count: number; is_affected: boolean }> {
+  const response = await apiClient.post<{ affected_count: number; is_affected: boolean }>(`/complaints/${id}/affected`);
+  return response.data;
+}
+
+export async function removeAffected(id: string): Promise<{ affected_count: number; is_affected: boolean }> {
+  const response = await apiClient.delete<{ affected_count: number; is_affected: boolean }>(`/complaints/${id}/affected`);
+  return response.data;
+}
+
