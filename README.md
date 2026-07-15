@@ -55,6 +55,12 @@ IntelliHall replaces that with a structured, role-based workflow:
 | PDF Schedule Export | Download a printable PDF grouped by worker (powered by ReportLab) |
 | In-App Notifications | Notified when a student confirms or rejects a repair |
 
+### 🤖 AI / Smart Features
+
+| Feature | Description |
+|---|---|
+| AI Priority Prediction | On complaint submission, the system automatically predicts the priority level using a rule-based weighted scoring model. The student's selected priority is preserved; the AI prediction is stored separately alongside a confidence score. Both students and hall admins can see the AI-predicted priority and confidence score on the complaint detail view. |
+
 ---
 
 ## 🔄 Complaint Workflow
@@ -142,7 +148,23 @@ Closed    Reopened ──► auto-transition ──► Verified
 | PostgreSQL 16 | Primary relational database |
 | Docker + docker-compose | Full-stack containerised deployment |
 
-> **Note:** The `app/ai/` module is scaffolded for future AI/NLP features (complaint prioritisation, duplicate detection). It contains no active logic in the current release.
+### AI Architecture
+
+The AI priority prediction layer is isolated from the rest of the application and follows a strict separation of concerns:
+
+```
+Complaint (submitted by student)
+         ↓
+ComplaintService  (orchestrates prediction on complaint creation)
+         ↓
+PriorityPredictor  (rule-based weighted scoring; returns predicted_priority + confidence)
+         ↓
+Repository  (persists student_priority, predicted_priority, ai_confidence)
+         ↓
+Database  (Complaint table — three dedicated columns)
+```
+
+The AI layer is fully isolated behind the `PriorityPredictor` interface. It can later be replaced by an ML model or an LLM without any changes to the API endpoints or the frontend — only the internals of `priority_predictor.py` need to change.
 
 ---
 
@@ -165,9 +187,13 @@ IntelliHall/
 │   │       ├── 0003_seed_halls.py          # IIT KGP hall seed data
 │   │       ├── 0004_hall_verification.py   # verification workflow
 │   │       ├── 0005_fix_admin_verification.py
-│   │       └── 0006_maintenance_workflow.py # assignments, slips, notifications
+│   │       ├── 0006_maintenance_workflow.py # assignments, slips, notifications
+│   │       └── 0007_ai_priority_prediction.py # adds predicted_priority, ai_confidence columns
 │   └── app/
 │       ├── main.py                 # FastAPI app, CORS, router mount
+│       ├── ai/
+│       │   ├── priority_predictor.py   # Rule-based weighted scoring; returns predicted priority + confidence
+│       │   └── utils.py               # Shared helpers for the AI module
 │       ├── core/
 │       │   ├── config.py           # Pydantic settings
 │       │   ├── security.py         # JWT encode/decode, password hashing
@@ -240,13 +266,30 @@ IntelliHall/
         │           └── verifications/
         ├── components/
         │   ├── admin/              # AssignmentDialog, CompletionDialog, ScheduleTable
-        │   ├── shared/             # ComplaintCard, NotificationBell, StudentConfirmationCard, …
+        │   ├── shared/             # ComplaintCard, NotificationBell, StudentConfirmationCard, AIPriorityBadge, …
+        │   │   └── ai-priority-badge.tsx  # Displays AI-predicted priority + confidence to students and admins
         │   └── ui/                 # shadcn/ui primitives
         ├── hooks/                  # use-complaints, use-schedule, use-notifications, …
         ├── services/               # Axios API client wrappers
         ├── types/                  # TypeScript interfaces (complaint, notification, …)
         └── store/                  # Zustand auth store
 ```
+
+---
+
+## 🗄️ Database
+
+### Complaint Model — AI Fields
+
+Migration `0007_ai_priority_prediction.py` adds three columns to the `complaints` table:
+
+| Column | Type | Description |
+|---|---|---|
+| `student_priority` | `VARCHAR` | The priority level explicitly chosen by the student when raising the complaint |
+| `predicted_priority` | `VARCHAR` (nullable) | The priority level predicted by the AI module at submission time |
+| `ai_confidence` | `FLOAT` (nullable) | Confidence score for the prediction in the range `0.0 – 1.0`; `NULL` if prediction was skipped |
+
+Both the student-selected and AI-predicted values are stored independently, so admins always have full context when triaging.
 
 ---
 
@@ -308,7 +351,7 @@ Run all Alembic migrations:
 alembic upgrade head
 ```
 
-This applies all 6 migrations, creating tables for users, halls, complaints, assignments, completion slips, and notifications, and seeds the IIT KGP hall list.
+This applies all 7 migrations, creating tables for users, halls, complaints, assignments, completion slips, notifications, and AI prediction columns, and seeds the IIT KGP hall list.
 
 ---
 
@@ -420,14 +463,37 @@ This starts PostgreSQL, runs migrations, and launches both the backend and front
 
 ---
 
+## 🤖 AI Features
+
+### ✔ AI Priority Prediction *(Implemented)*
+
+When a student submits a complaint, the system automatically predicts the appropriate priority level:
+
+- **Rule-based weighted scoring** — The `PriorityPredictor` analyses complaint category, description keywords, location, and historical patterns using a deterministic weighted scoring model. No external API or model file is required.
+- **Confidence score** — Every prediction ships with a `0.0–1.0` confidence value, surfaced in the UI via the `AIPriorityBadge` component so students and admins can gauge reliability at a glance.
+- **Explainable AI** — The scoring logic is fully transparent and readable in `priority_predictor.py`; no black-box inference.
+- **Non-destructive** — The student's chosen priority is always preserved. The AI prediction is stored in a separate column (`predicted_priority`) alongside `ai_confidence`. Admins can compare both values when triaging complaints.
+- **Easily replaceable** — The `PriorityPredictor` class is the only integration point. Swapping the rule-based engine for an ML model or LLM requires changes only inside `priority_predictor.py`; the API and frontend remain unchanged.
+
+---
+
+### Coming Soon
+
+| Feature | Status |
+|---|---|
+| 🔍 AI Auto Categorization | *Coming Soon* — Automatically suggest complaint category from free-text description |
+| 🪞 Duplicate Complaint Detection | *Coming Soon* — Flag semantically similar open complaints before submission |
+| 📷 Image-based Classification | *Coming Soon* — Infer category and severity from uploaded complaint photos |
+| 📊 Predictive Maintenance Analytics | *Coming Soon* — Surface recurring failure patterns and flag at-risk fixtures before complaints are raised |
+
+---
+
 ## 🔮 Future Enhancements
 
 These features are **not yet implemented** and are planned for future milestones:
 
 | Feature | Description |
 |---|---|
-| 🤖 AI Complaint Prioritisation | Automatically assign priority based on complaint text using NLP models |
-| 🔍 Duplicate Complaint Detection | Flag similar open complaints before submission |
 | 📱 QR-based Complaint Registration | Scan a QR code at a broken fixture to pre-fill location and category |
 | 📧 Email / SMS Notifications | Push alerts via email and SMS in addition to in-app notifications |
 | 📊 Analytics Dashboard | Charts and metrics for complaint volume, resolution time, worker performance |
@@ -442,8 +508,9 @@ These features are **not yet implemented** and are planned for future milestones
 | Name | GitHub | Role |
 |---|---|---|
 | Oindrila Singha | [@oindrilaSinghaGithub](https://github.com/oindrilaSinghaGithub) | Full-stack lead |
+| Kavya Rai | [@Vya234](https://github.com/Vya234) | Full-stack |
 | Khushi Kumari | [@Khushi-Kumari030](https://github.com/Khushi-Kumari030) | Frontend |
-| Kavya Rai | [@Vya234](https://github.com/Vya234) | Frontend |
+
 
 ---
 
