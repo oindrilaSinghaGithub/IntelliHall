@@ -605,13 +605,18 @@ export default function AdminDashboardPage() {
                                 {formattedDate}
                               </td>
                               <td className="px-6 py-4">
-                                <span
-                                  className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-                                    priorityColors[c.priority] || "bg-secondary"
-                                  }`}
-                                >
-                                  {c.priority.toUpperCase()}
-                                </span>
+                                {(() => {
+                                  const displayPriority = c.predicted_priority || c.priority;
+                                  return (
+                                    <span
+                                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                                        priorityColors[displayPriority] || "bg-secondary"
+                                      }`}
+                                    >
+                                      {displayPriority.toUpperCase()}
+                                    </span>
+                                  );
+                                })()}
                               </td>
                               <td className="px-6 py-4">
                                 <ComplaintStatusBadge status={c.status} />
