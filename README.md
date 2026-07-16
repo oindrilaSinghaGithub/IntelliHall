@@ -33,6 +33,8 @@ IntelliHall replaces that with a structured, role-based workflow:
 | Hall Selection | Choose residential hall during registration |
 | Hall Verification | Admin approves or rejects hall affiliation; student sees live status |
 | Raise Complaint | Submit maintenance requests with title, description, category, priority, location, images, and preferred visit time |
+| Common Area Visibility | See all active common area complaints reported by any student in the same hall to prevent duplicate submissions |
+| "I'm Affected" Voting | Mark oneself as affected on open common area complaints in the same hall, dynamically incrementing the community impact count (`affected_count`) |
 | Complaint Tracking | View full complaint detail including current status and all transitions |
 | Status Timeline | Chronological audit trail of every status change with actor and remarks |
 | Student Confirmation | Confirm or reject a completed repair; rejection automatically reopens the complaint |
@@ -44,9 +46,11 @@ IntelliHall replaces that with a structured, role-based workflow:
 | Feature | Description |
 |---|---|
 | Hall Verification Queue | Review pending student hall affiliations; approve or reject with optional reason |
-| Complaint Queue | Paginated, filterable list of all hall complaints with sort options |
+| Complaint Queue | Paginated, filterable list of all hall complaints with sort options (including priority, type, category, and creation date) |
 | Complaint Verification | Advance complaint from `submitted` → `verified` |
-| Worker Assignment | Schedule a visit with worker name, type, visit date, time slot, and remarks |
+| Hall Staff Management | Add, edit, status (Available/Busy/On Leave), and delete maintenance workers belonging to the same hall |
+| AI Worker Recommendation | View highly tailored AI recommendations for worker assignment based on specialization, current workload, availability, and skill ratings |
+| Worker Assignment | Schedule agit push origin <your-branch-name> visit with worker name, specialization, visit date, time slot, and remarks (supporting final admin overrides) |
 | Status Management | Drive complaints through the full FSM: verify → schedule → in-progress → complete → close |
 | Completion Slip | Auto-generated digital record capturing work done and worker details |
 | Student Confirmation Review | See whether the student confirmed or rejected; student comment visible |
@@ -60,6 +64,7 @@ IntelliHall replaces that with a structured, role-based workflow:
 | Feature | Description |
 |---|---|
 | AI Priority Prediction | On complaint submission, the system automatically predicts the priority level using a rule-based weighted scoring model. The student's selected priority is preserved; the AI prediction is stored separately alongside a confidence score. Both students and hall admins can see the AI-predicted priority and confidence score on the complaint detail view. |
+| AI Worker Recommendation | Dynamically scans hall maintenance workers, filters by required specialization, availability, and computes recommendation scores using workload, rating, and priority-experience adjustments (preferring senior workers for high-priority complaints and junior workers for low-priority complaints). Surfaced to admins as interactive cards on the complaint detail sidebar. |
 
 ---
 
@@ -188,11 +193,14 @@ IntelliHall/
 │   │       ├── 0004_hall_verification.py   # verification workflow
 │   │       ├── 0005_fix_admin_verification.py
 │   │       ├── 0006_maintenance_workflow.py # assignments, slips, notifications
-│   │       └── 0007_ai_priority_prediction.py # adds predicted_priority, ai_confidence columns
+│   │       ├── 0007_ai_priority_prediction.py # adds predicted_priority, ai_confidence columns
+│   │       ├── e627c77a261c_add_common_area_affected.py # adds affected_count, common_area fields
+│   │       └── faeff36ba00e_add_workers_and_complaint_relationships.py # adds Worker table + relationships
 │   └── app/
 │       ├── main.py                 # FastAPI app, CORS, router mount
 │       ├── ai/
 │       │   ├── priority_predictor.py   # Rule-based weighted scoring; returns predicted priority + confidence
+│       │   ├── worker_recommender.py   # Heuristic AI matching based on specialized tasks, active jobs, ratings
 │       │   └── utils.py               # Shared helpers for the AI module
 │       ├── core/
 │       │   ├── config.py           # Pydantic settings
@@ -202,9 +210,10 @@ IntelliHall/
 │       │   ├── base.py             # DeclarativeBase, TimestampedBase mixin
 │       │   └── session.py          # Async session factory
 │       ├── models/
-│       │   ├── enums.py            # All domain enumerations
+│       │   ├── enums.py            # All domain enumerations (including WorkerSpecialization, WorkerAvailability, WorkerExperienceLevel)
 │       │   ├── user.py
 │       │   ├── hall.py
+│       │   ├── worker.py           # Worker model (calculates active_jobs dynamically)
 │       │   ├── complaint.py        # Complaint, ComplaintImage, StatusHistory
 │       │   ├── assignment.py       # ComplaintAssignment (worker scheduling)
 │       │   ├── completion_slip.py  # CompletionSlip (digital repair record)
@@ -212,6 +221,7 @@ IntelliHall/
 │       ├── schemas/                # Pydantic request/response models
 │       │   ├── auth.py
 │       │   ├── complaint.py
+│       │   ├── worker.py           # WorkerCreate, WorkerUpdate, WorkerRead schemas
 │       │   ├── assignment.py
 │       │   ├── completion_slip.py
 │       │   ├── schedule.py
@@ -221,6 +231,7 @@ IntelliHall/
 │       │   └── verification.py
 │       ├── repositories/           # Pure DB access layer (no business logic)
 │       │   ├── complaint_repository.py
+│       │   ├── worker_repository.py  # CRUD query operations for maintenance staff
 │       │   ├── assignment_repository.py
 │       │   ├── completion_slip_repository.py
 │       │   ├── notification_repository.py
@@ -245,6 +256,7 @@ IntelliHall/
 │               ├── schedule.py     # GET schedule + PDF export
 │               ├── notifications.py
 │               ├── verification.py
+│               ├── workers.py      # CRUD for hall maintenance staff + assignment logic
 │               └── health.py
 │
 └── frontend/
@@ -261,7 +273,10 @@ IntelliHall/
         │       ├── complaints/     # Student complaint list + detail + new
         │       └── admin/
         │           ├── page.tsx    # Admin dashboard
-        │           ├── complaints/ # Admin complaint queue + detail
+        │           ├── complaints/ # Admin complaint queue + detail (contains AiWorkerRecommenderCard sidebar widget)
+        │           │   └── [id]/
+        │           │       └── ai-worker-recommender-card.tsx # Displays AI pick, scores, and assignment selector
+        │           ├── staff/      # Hall Staff management page (CRUD workers)
         │           ├── schedule/   # Maintenance schedule + PDF export
         │           └── verifications/
         ├── components/
@@ -474,6 +489,24 @@ When a student submits a complaint, the system automatically predicts the approp
 - **Explainable AI** — The scoring logic is fully transparent and readable in `priority_predictor.py`; no black-box inference.
 - **Non-destructive** — The student's chosen priority is always preserved. The AI prediction is stored in a separate column (`predicted_priority`) alongside `ai_confidence`. Admins can compare both values when triaging complaints.
 - **Easily replaceable** — The `PriorityPredictor` class is the only integration point. Swapping the rule-based engine for an ML model or LLM requires changes only inside `priority_predictor.py`; the API and frontend remain unchanged.
+
+---
+
+### ✔ AI Recommended Worker Assignment *(Implemented)*
+
+When a complaint is verified, the system assists the admin by recommending the best maintenance worker:
+
+- **Specialization Matching**: Automatically parses the complaint category and matches it to a specific technician specialization (e.g. `Electrical` → `Electrician`, `Plumbing` → `Plumber`).
+- **Dynamic Workload Scoring**: Computes each worker's active workload (number of assigned complaints that are not completed/closed) directly via a SQLAlchemy `column_property` (to avoid data sync bugs) and prioritizes workers with lower active workloads.
+- **Experience Alignment**: Supports three worker experience levels (Junior, Intermediate, Senior). High-priority or critical complaints dynamically penalize junior workers and favor senior ones, whereas low-priority complaints prioritize junior staff.
+- **Availability Status**: Filters out staff on leave, and prioritizes available workers over busy ones.
+- **Computed Confidence Levels**: surfaces confidence levels derived dynamically from the recommendation score:
+  - **Score 90–100**: Very High
+  - **Score 75–89**: High
+  - **Score 60–74**: Medium
+  - **Score <60**: Low
+- **Non-Destructive Recommendations**: AI recommends worker assignment dynamically on complaint edits (when category/priority changes) only if the complaint is *not yet assigned*. Once an admin makes a choice, it is preserved. Admins can also click a "Recalculate AI recommendation" button to force a re-run on demand.
+- **Delete Prevention**: Enforces database integrity by returning `409 Conflict` if an admin attempts to delete a worker with active complaint assignments.
 
 ---
 
