@@ -67,6 +67,9 @@ class ComplaintRepository:
         hall_id: str,
         predicted_priority: ComplaintPriority | None = None,
         ai_confidence: float | None = None,
+        recommended_worker_id: str | None = None,
+        recommendation_score: float | None = None,
+        recommendation_reason: str | None = None,
     ) -> Complaint:
         """
         Persist a new Complaint row.
@@ -100,11 +103,15 @@ class ComplaintRepository:
             created_by=user_id,
             predicted_priority=predicted_priority,
             ai_confidence=ai_confidence,
+            recommended_worker_id=recommended_worker_id,
+            recommendation_score=recommendation_score,
+            recommendation_reason=recommendation_reason,
         )
         session.add(complaint)
         await session.flush()          # obtain id without committing
         await session.refresh(complaint)
         return complaint
+
 
 
     # ------------------------------------------------------------------

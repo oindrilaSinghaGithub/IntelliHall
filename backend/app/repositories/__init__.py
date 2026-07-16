@@ -5,3 +5,5 @@
 from app.repositories.complaint_repository import ComplaintRepository  # noqa: F401
 from app.repositories.hall_repository import HallRepository  # noqa: F401
 from app.repositories.user_repository import UserRepository  # noqa: F401
+from app.repositories.worker_repository import WorkerRepository  # noqa: F401
+

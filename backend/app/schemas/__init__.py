@@ -16,3 +16,10 @@ from app.schemas.complaint import (  # noqa: F401
     PaginatedResponse,
     StatusUpdateRequest,
 )
+from app.schemas.worker import (  # noqa: F401
+    WorkerCreate,
+    WorkerRead,
+    WorkerUpdate,
+    PaginatedWorkerResponse,
+)
+

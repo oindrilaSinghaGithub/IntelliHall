@@ -1,4 +1,7 @@
+import type { Worker } from "./worker";
+
 export type ComplaintType = "personal" | "common_area";
+
 
 export type ComplaintCategory =
   | "electrical"
@@ -113,7 +116,14 @@ export interface Complaint {
   affected_count?: number;
   is_affected?: boolean;
   reporter_room?: string | null;
+  assigned_worker_id?: string | null;
+  recommended_worker_id?: string | null;
+  recommendation_score?: number | null;
+  recommendation_reason?: string | null;
+  recommendation_confidence?: string | null;
+  assigned_worker?: Worker | null;
 }
+
 
 export interface ComplaintSummary {
   id: string;
@@ -133,7 +143,14 @@ export interface ComplaintSummary {
   affected_count?: number;
   is_affected?: boolean;
   reporter_room?: string | null;
+  assigned_worker_id?: string | null;
+  recommended_worker_id?: string | null;
+  recommendation_score?: number | null;
+  recommendation_reason?: string | null;
+  recommendation_confidence?: string | null;
+  assigned_worker?: Worker | null;
 }
+
 
 export interface PaginatedResponse<T> {
   items: T[];

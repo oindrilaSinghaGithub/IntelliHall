@@ -16,5 +16,7 @@ Future capabilities (planned)
 """
 
 from app.ai.priority_predictor import PriorityPredictor
+from app.ai.worker_recommender import WorkerRecommender
 
-__all__ = ["PriorityPredictor"]
+__all__ = ["PriorityPredictor", "WorkerRecommender"]
+

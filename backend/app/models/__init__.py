@@ -12,6 +12,9 @@ from app.models.enums import (  # noqa: F401
     MaintenanceType,
     StudentConfirmationStatus,
     UserRole,
+    WorkerSpecialization,
+    WorkerAvailability,
+    WorkerExperienceLevel,
 )
 from app.models.hall import Hall  # noqa: F401
 from app.models.user import User  # noqa: F401
@@ -21,6 +24,8 @@ from app.models.complaint import (  # noqa: F401
     ComplaintStatusHistory,
     CommonAreaAffected,
 )
+from app.models.worker import Worker  # noqa: F401
 from app.models.assignment import ComplaintAssignment  # noqa: F401
 from app.models.completion_slip import CompletionSlip  # noqa: F401
 from app.models.notification import Notification  # noqa: F401
+

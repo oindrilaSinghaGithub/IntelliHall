@@ -49,6 +49,8 @@ if TYPE_CHECKING:
     from app.models.completion_slip import CompletionSlip
     from app.models.hall import Hall
     from app.models.user import User
+    from app.models.worker import Worker
+
 
 
 def _utcnow() -> datetime:
@@ -232,6 +234,35 @@ class Complaint(TimestampedBase):
         comment="User (student) who raised the complaint.",
     )
 
+    assigned_worker_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("workers.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Worker assigned to resolve this complaint.",
+    )
+
+    recommended_worker_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("workers.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Worker recommended by the AI for this complaint.",
+    )
+
+    recommendation_score: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="AI recommendation match score percentage (0-100).",
+    )
+
+    recommendation_reason: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="AI recommendation reasoning explaining the choice.",
+    )
+
+
     # ------------------------------------------------------------------
     # Relationships
     # ------------------------------------------------------------------
@@ -248,6 +279,20 @@ class Complaint(TimestampedBase):
         back_populates="complaints_created",
         lazy="selectin",
     )
+
+    assigned_worker: Mapped[Worker | None] = relationship(
+        "Worker",
+        foreign_keys=[assigned_worker_id],
+        back_populates="assigned_complaints",
+        lazy="selectin",
+    )
+
+    recommended_worker: Mapped[Worker | None] = relationship(
+        "Worker",
+        foreign_keys=[recommended_worker_id],
+        lazy="selectin",
+    )
+
 
     images: Mapped[list["ComplaintImage"]] = relationship(
         "ComplaintImage",

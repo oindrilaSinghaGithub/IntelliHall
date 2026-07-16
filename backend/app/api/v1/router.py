@@ -6,7 +6,7 @@ Register all endpoint routers here.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, complaints, halls, health, verification, notifications
+from app.api.v1.endpoints import auth, complaints, halls, health, verification, notifications, workers
 from app.api.v1.endpoints.analytics import router as analytics_router
 from app.api.v1.endpoints.schedule import router as schedule_router
 
@@ -16,11 +16,13 @@ api_router.include_router(health.router,        prefix="/health",        tags=["
 api_router.include_router(auth.router,          prefix="/auth",          tags=["auth"])
 api_router.include_router(complaints.router,    prefix="/complaints",    tags=["complaints"])
 api_router.include_router(halls.router,         prefix="/halls",         tags=["halls"])
+api_router.include_router(workers.router,       prefix="/workers",       tags=["workers"])
 api_router.include_router(
     verification.router,
     prefix="/verification",
     tags=["verification"],
 )
+
 # Student self-service: PATCH /users/me/hall lives on the verification router
 # but is exposed under /users prefix for semantic clarity
 api_router.include_router(

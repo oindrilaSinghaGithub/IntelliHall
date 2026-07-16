@@ -206,7 +206,14 @@ export default function AdminDashboardPage() {
                       Work Schedule
                     </Button>
                   </Link>
+                  <Link href="/dashboard/admin/staff">
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs font-semibold">
+                      <Wrench className="h-3.5 w-3.5" />
+                      Hall Staff
+                    </Button>
+                  </Link>
                 </div>
+
               </div>
             </div>
 

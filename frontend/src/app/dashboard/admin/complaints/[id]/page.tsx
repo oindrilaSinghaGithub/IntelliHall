@@ -31,7 +31,9 @@ import { AiPriorityBadge } from "@/components/shared/ai-priority-badge";
 import { ComplaintDetailHeader } from "./complaint-detail-header";
 import { AssignmentPanel } from "./assignment-panel";
 import { StatusActionBar } from "./status-action-bar";
+import { AiWorkerRecommenderCard } from "./ai-worker-recommender-card";
 import { resolveImageUrl } from "@/utils/image-url";
+
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -290,6 +292,10 @@ export default function AdminComplaintDetailPage({ params }: PageProps) {
                         variant="card"
                       />
                     )}
+
+                    {/* AI Worker Recommendation card */}
+                    <AiWorkerRecommenderCard complaint={complaint} />
+
 
                     {/* Assignment info panel (read-only, shown when scheduled) */}
                     {complaint.assignment && (

@@ -181,6 +181,32 @@ class ComplaintService:
         predicted_priority = prediction["priority"]
         ai_confidence = prediction["confidence"]
 
+        # ------------------------------------------------------------------
+        # AI Worker Recommendation
+        # Runs at creation time to populate initial recommendations.
+        # ------------------------------------------------------------------
+        recommended_worker_id = None
+        recommendation_score = None
+        recommendation_reason = None
+        try:
+            from app.ai import WorkerRecommender
+            from app.repositories import WorkerRepository
+
+            hall_workers = await WorkerRepository.list_all_in_hall(session, current_user.hall_id)
+            rec = WorkerRecommender().recommend_worker(
+                category=data.category,
+                title=data.title,
+                description=data.description,
+                predicted_priority=predicted_priority,
+                workers=hall_workers,
+            )
+            recommended_worker = rec["recommended_worker"]
+            recommended_worker_id = recommended_worker.id if recommended_worker else None
+            recommendation_score = rec["recommendation_score"]
+            recommendation_reason = rec["recommendation_reason"]
+        except Exception as e:
+            recommendation_reason = f"Recommendation engine unavailable: {str(e)}"
+
         return await ComplaintRepository.create(
             session,
             data,
@@ -188,7 +214,11 @@ class ComplaintService:
             hall_id=current_user.hall_id,
             predicted_priority=predicted_priority,
             ai_confidence=ai_confidence,
+            recommended_worker_id=recommended_worker_id,
+            recommendation_score=recommendation_score,
+            recommendation_reason=recommendation_reason,
         )
+
 
     # ------------------------------------------------------------------
     # Upload images (Student — own complaint, submitted status only)
@@ -899,13 +929,86 @@ class ComplaintService:
         """Partially update complaint fields (admin only, own hall)."""
         complaint = await ComplaintService.get_for_admin(session, complaint_id, current_user)
 
-        if not data.model_dump(exclude_none=True):
+        # Process force_recompute_recommendation custom field
+        force_recompute = data.force_recompute_recommendation
+        data.force_recompute_recommendation = None
+
+        if not data.model_dump(exclude_none=True) and not force_recompute:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No fields provided for update.",
             )
 
+        # Handle assigned_worker_id update
+        if data.assigned_worker_id is not None:
+            if data.assigned_worker_id == "":
+                complaint.assigned_worker_id = None
+                complaint.current_assignee = None
+                data.assigned_worker_id = None
+            else:
+                from app.repositories.worker_repository import WorkerRepository
+                worker = await WorkerRepository.get_by_id(session, data.assigned_worker_id)
+                if not worker or worker.hall_id != complaint.hall_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Worker not found or does not belong to this hall.",
+                    )
+                complaint.assigned_worker_id = worker.id
+                complaint.current_assignee = worker.name
+                
+                from app.models.enums import WorkerSpecialization, MaintenanceType
+                _SPEC_TO_MAINT = {
+                    WorkerSpecialization.ELECTRICIAN: MaintenanceType.ELECTRICIAN,
+                    WorkerSpecialization.PLUMBER: MaintenanceType.PLUMBER,
+                    WorkerSpecialization.CARPENTER: MaintenanceType.CARPENTER,
+                    WorkerSpecialization.CLEANING_STAFF: MaintenanceType.CLEANING_STAFF,
+                    WorkerSpecialization.NETWORK_STAFF: MaintenanceType.ELECTRICIAN,
+                    WorkerSpecialization.CIVIL_MAINTENANCE: MaintenanceType.CIVIL,
+                }
+                complaint.maintenance_type = _SPEC_TO_MAINT.get(worker.specialization, MaintenanceType.ELECTRICIAN)
+                data.assigned_worker_id = worker.id
+
+        # Re-run priority predictor and worker recommender if fields change OR forced
+        title_changed = data.title is not None and data.title != complaint.title
+        desc_changed = data.description is not None and data.description != complaint.description
+        cat_changed = data.category is not None and data.category != complaint.category
+        
+        should_recompute = force_recompute or (
+            (title_changed or desc_changed or cat_changed) and complaint.assigned_worker_id is None
+        )
+
+        if should_recompute:
+            # Re-predict priority
+            from app.ai import PriorityPredictor
+            new_title = data.title if data.title is not None else complaint.title
+            new_desc = data.description if data.description is not None else complaint.description
+            prediction = PriorityPredictor().predict(title=new_title, description=new_desc)
+            complaint.predicted_priority = prediction["priority"]
+            complaint.ai_confidence = prediction["confidence"]
+            
+            # Re-run recommendation
+            try:
+                from app.ai import WorkerRecommender
+                from app.repositories.worker_repository import WorkerRepository
+                new_cat = data.category if data.category is not None else complaint.category
+                hall_workers = await WorkerRepository.list_all_in_hall(session, complaint.hall_id)
+                
+                rec = WorkerRecommender().recommend_worker(
+                    category=new_cat,
+                    title=new_title,
+                    description=new_desc,
+                    predicted_priority=complaint.predicted_priority,
+                    workers=hall_workers,
+                )
+                recommended_worker = rec["recommended_worker"]
+                complaint.recommended_worker_id = recommended_worker.id if recommended_worker else None
+                complaint.recommendation_score = rec["recommendation_score"]
+                complaint.recommendation_reason = rec["recommendation_reason"]
+            except Exception as e:
+                complaint.recommendation_reason = f"Recommendation engine unavailable: {str(e)}"
+
         return await ComplaintRepository.update(session, complaint, data)
+
 
     # ------------------------------------------------------------------
     # Delete (admin only)

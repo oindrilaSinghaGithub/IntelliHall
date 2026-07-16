@@ -119,3 +119,36 @@ class StudentConfirmationStatus(str, enum.Enum):
     PENDING = "pending"
     CONFIRMED = "confirmed"
     REJECTED = "rejected"
+
+
+# ---------------------------------------------------------------------------
+# Worker enums
+# ---------------------------------------------------------------------------
+
+
+class WorkerSpecialization(str, enum.Enum):
+    """Specialization of a maintenance worker."""
+
+    ELECTRICIAN = "electrician"
+    PLUMBER = "plumber"
+    CARPENTER = "carpenter"
+    CLEANING_STAFF = "cleaning_staff"
+    NETWORK_STAFF = "network_staff"
+    CIVIL_MAINTENANCE = "civil_maintenance"
+
+
+class WorkerAvailability(str, enum.Enum):
+    """Availability status of a worker."""
+
+    AVAILABLE = "available"
+    BUSY = "busy"
+    ON_LEAVE = "on_leave"
+
+
+class WorkerExperienceLevel(str, enum.Enum):
+    """Experience level of a worker."""
+
+    JUNIOR = "junior"
+    INTERMEDIATE = "intermediate"
+    SENIOR = "senior"
+

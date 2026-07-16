@@ -15,6 +15,8 @@ from app.db.base import TimestampedBase
 if TYPE_CHECKING:
     from app.models.complaint import Complaint
     from app.models.user import User
+    from app.models.worker import Worker
+
 
 
 class Hall(TimestampedBase):
@@ -59,6 +61,14 @@ class Hall(TimestampedBase):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+
+    workers: Mapped[list["Worker"]] = relationship(
+        "Worker",
+        back_populates="hall",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
 
     # ------------------------------------------------------------------
     # Repr

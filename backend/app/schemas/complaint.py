@@ -24,7 +24,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.models.enums import (
     ComplaintCategory,
@@ -33,6 +33,8 @@ from app.models.enums import (
     ComplaintType,
     MaintenanceType,
 )
+from app.schemas.worker import WorkerRead
+
 
 T = TypeVar("T")
 # ---------------------------------------------------------------------------
@@ -319,6 +321,8 @@ class ComplaintUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=3, max_length=255)
     description: str | None = Field(default=None, min_length=10)
     priority: ComplaintPriority | None = Field(default=None)
+    category: ComplaintCategory | None = Field(default=None)
+
     status: ComplaintStatus | None = Field(default=None)
     maintenance_type: MaintenanceType | None = Field(default=None)
     current_assignee: str | None = Field(default=None, max_length=255)
@@ -328,6 +332,10 @@ class ComplaintUpdate(BaseModel):
     common_area: str | None = Field(default=None, max_length=100)
     qr_location_id: str | None = Field(default=None, max_length=100)
     preferred_visit_time: datetime | None = Field(default=None)
+    assigned_worker_id: str | None = Field(default=None)
+    force_recompute_recommendation: bool | None = Field(default=None)
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -402,6 +410,43 @@ class ComplaintRead(ComplaintBase):
         description="Privacy-friendly room/location identifier of the reporter student.",
     )
 
+    # Worker Assignment and Recommendation fields
+    assigned_worker_id: str | None = Field(
+        default=None,
+        description="UUID of the assigned worker.",
+    )
+    recommended_worker_id: str | None = Field(
+        default=None,
+        description="UUID of the recommended worker.",
+    )
+    recommendation_score: float | None = Field(
+        default=None,
+        description="AI recommendation score out of 100.",
+    )
+    recommendation_reason: str | None = Field(
+        default=None,
+        description="Explanation/reasoning bullets for the AI recommendation.",
+    )
+    assigned_worker: WorkerRead | None = Field(
+        default=None,
+        description="Details of the assigned worker.",
+    )
+
+    @computed_field
+    @property
+    def recommendation_confidence(self) -> str | None:
+        if self.recommendation_score is None:
+            return None
+        if self.recommendation_score >= 90:
+            return "Very High"
+        elif self.recommendation_score >= 75:
+            return "High"
+        elif self.recommendation_score >= 60:
+            return "Medium"
+        else:
+            return "Low"
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -451,6 +496,43 @@ class ComplaintSummary(BaseModel):
         default=None,
         description="Privacy-friendly room/location identifier of the reporter student.",
     )
+
+    # Worker Assignment and Recommendation fields
+    assigned_worker_id: str | None = Field(
+        default=None,
+        description="UUID of the assigned worker.",
+    )
+    recommended_worker_id: str | None = Field(
+        default=None,
+        description="UUID of the recommended worker.",
+    )
+    recommendation_score: float | None = Field(
+        default=None,
+        description="AI recommendation score out of 100.",
+    )
+    recommendation_reason: str | None = Field(
+        default=None,
+        description="Explanation/reasoning bullets for the AI recommendation.",
+    )
+    assigned_worker: WorkerRead | None = Field(
+        default=None,
+        description="Details of the assigned worker.",
+    )
+
+    @computed_field
+    @property
+    def recommendation_confidence(self) -> str | None:
+        if self.recommendation_score is None:
+            return None
+        if self.recommendation_score >= 90:
+            return "Very High"
+        elif self.recommendation_score >= 75:
+            return "High"
+        elif self.recommendation_score >= 60:
+            return "Medium"
+        else:
+            return "Low"
+
 
 
 # ---------------------------------------------------------------------------
